@@ -55,6 +55,7 @@ $firstPhoto = $photos[0] ?? 'https://via.placeholder.com/300x200?text=No+Photo';
 </head>
 <body>
     <h1>Property Listings</h1>
+    <h2>TEST FOR LOCAL DEVELOPMENT</h2>
 
     <form method="GET" class="filters">
         <input type="number" name="min" placeholder="Min Price" value="<?php echo $_GET['min'] ?? ''; ?>">
