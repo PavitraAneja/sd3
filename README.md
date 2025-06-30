@@ -1,16 +1,8 @@
-# SD3 - Trestle API Real Estate Project
-
-A PHP application that displays property listings and open houses from Trestle API.
-
 ## Quick Setup
 
-### 1. Install Requirements
-- PHP 7.4+ with `mysqli` and `curl` extensions
-- MySQL 5.7+
-
-### 2. Setup Database
+### 1. Setup Database Locally
 ```bash
-# Create database and user
+# Open Terminal and run these commands to create database and user
 mysql -u root -p
 CREATE DATABASE sd3;
 CREATE USER 'sd3_user'@'localhost' IDENTIFIED BY 'your_password';
@@ -18,7 +10,7 @@ GRANT ALL PRIVILEGES ON sd3.* TO 'sd3_user'@'localhost';
 FLUSH PRIVILEGES;
 EXIT;
 
-# Import tables
+# Create tables in the database
 mysql -u sd3_user -p sd3 < setup_tables.sql
 ```
 
@@ -37,18 +29,21 @@ php -S localhost:8000
 ```
 
 ### 5. Setup API Token
-Visit: `http://localhost:8000/generate_token.php`
+Open Browser and visit: `http://localhost:8000/api/generate_token.php`
 
 ### 6. Sync Data
-Visit: `http://localhost:8000/sync_properties.php`
-Visit: `http://localhost:8000/sync_openhouse.php`
+Open Browser and visit: `http://localhost:8000/api/sync_properties.php`
+Open Browser and visit: `http://localhost:8000/api/sync_openhouse.php`
 
 ### 7. View App
 Visit: `http://localhost:8000`
 
-## Files
-- `index.php` - Property listings
-- `openhouse.php` - Open house listings
-- `sync_properties.php` - Sync properties from API
-- `sync_openhouse.php` - Sync open houses from API
-- `generate_token.php` - Generate API token 
+
+### Frontend Pages
+- **`index.php`** - Property listings and search
+- **`openhouse.php`** - Open house calendar and details
+
+### API Endpoints
+- **`api/sync_properties.php`** - Fetches and stores property data from Trestle API
+- **`api/sync_openhouse.php`** - Syncs open house information from Trestle API
+- **`api/generate_token.php`** - Creates authentication token for API access 
