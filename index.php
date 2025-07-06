@@ -57,7 +57,7 @@ if ($result) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PropertyFinder - Modern Property Search</title>
+    <title>California Homes</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
         * {
@@ -96,6 +96,24 @@ if ($result) {
         .logo {
             font-size: 1.8rem;
             font-weight: bold;
+        }
+
+        .logo svg {
+            height: 48px;
+            width: auto;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .logo svg * {
+            fill: white !important;
+        }
+
+        .logo-img {
+            height: 48px;
+            width: auto;
+            display: inline-block;
+            vertical-align: middle;
         }
 
         nav ul {
@@ -451,7 +469,11 @@ if ($result) {
     <header>
         <div class="container">
             <div class="header-content">
-                <div class="logo">California Homes</div>
+            <div class="logo" style="display: flex; align-items: center; gap: 2px;">
+                <img src="assets/white-logo.png" alt="California Homes Logo" style="height: 48px; width: auto; display: inline-block; vertical-align: middle;" />
+                <div style="width:2px; height:32px; background:white; margin:0 10px; border-radius:2px;"></div>
+                <span style="font-size: 1.5rem; font-weight: bold; color: white; margin-left: 0;">California Homes</span>
+            </div>
                 <nav>
                     <ul>
                         <li><a href="index.php">Homes for Sale</a></li>

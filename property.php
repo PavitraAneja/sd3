@@ -60,12 +60,94 @@ $conn->close();
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title><?php echo htmlspecialchars($property['L_Address']); ?> - Property Details</title>
-    <link rel="stylesheet" href="css/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo htmlspecialchars($property['L_Address']); ?> - California Homes</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8fafc;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px 20px 0 20px;
+        }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+        .logo img {
+            height: 48px;
+            width: auto;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .logo-divider {
+            width:2px;
+            height:32px;
+            background:white;
+            margin:0 10px;
+            border-radius:2px;
+        }
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            margin-left: 0;
+        }
+        nav ul {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+        }
+        nav a {
+            color: white;
+            text-decoration: none;
+            transition: opacity 0.3s;
+        }
+        nav a:hover {
+            opacity: 0.8;
+        }
+        .back-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            transform: translateY(-2px);
+            text-decoration: none;
+        }
         .property-header {
             background: #f8f9fa;
             padding: 20px;
@@ -189,18 +271,6 @@ $conn->close();
         .openhouse-time {
             color: #666;
         }
-        .back-button {
-            display: inline-block;
-            padding: 10px 20px;
-            background: #007bff;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        .back-button:hover {
-            background: #0056b3;
-        }
         .property-map {
             height: 300px;
             border-radius: 8px;
@@ -253,8 +323,25 @@ $conn->close();
     </style>
 </head>
 <body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo" style="display: flex; align-items: center; gap: 2px;">
+                    <img src="assets/white-logo.png" alt="California Homes Logo" style="height: 48px; width: auto; display: inline-block; vertical-align: middle;" />
+                    <div class="logo-divider"></div>
+                    <span class="logo-text">California Homes</span>
+                </div>
+                <nav>
+                    <ul>
+                    <li><a href="index.php">Homes for Sale</a></li>
+                    <li><a href="openhouse.php">Open Houses</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </header>
     <div class="container">
-        <a href="index.php" class="back-button">← Back to Properties</a>
+        <a href="index.php" class="back-btn">← Back to Properties</a>
         
         <div class="property-header">
             <h1 class="property-title"><?php echo htmlspecialchars($property['L_Address']); ?></h1>
