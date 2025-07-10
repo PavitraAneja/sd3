@@ -17,6 +17,13 @@ $count_sql = "SELECT COUNT(*) as total FROM rets_property $filter_sql";
 $count_result = $conn->query($count_sql);
 $total = $count_result ? $count_result->fetch_assoc()['total'] : 0;
 
+// Get the latest created_at from the entire table
+$latest_created_at = null;
+$latest_result = $conn->query('SELECT MAX(created_at) as latest_created_at FROM rets_property');
+if ($latest_result && ($row = $latest_result->fetch_assoc())) {
+    $latest_created_at = $row['latest_created_at'];
+}
+
 $sql = "SELECT L_ListingID, L_Address, L_City, L_State, L_Zip, L_SystemPrice, L_Keyword2, LM_Dec_3, LM_Int2_3, L_Photos, L_Remarks, LMD_MP_Latitude as Latitude, LMD_MP_Longitude as Longitude, 
         LA1_UserFirstName, LA1_UserLastName, LO1_OrganizationName, L_Status, created_at
         FROM rets_property $filter_sql ORDER BY created_at DESC LIMIT $limit OFFSET $offset";
@@ -69,7 +76,6 @@ sort($cities);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>California Homes</title>
-    <!-- <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" /> -->
     <style>
         * {
             margin: 0;
@@ -607,8 +613,10 @@ sort($cities);
                 </div>
                 <?php if (!empty($listings)): ?>
                 <div class="stat-item">
-                    <div class="stat-number"><?php echo date('M j', strtotime($listings[0]['created_at'])); ?></div>
-                    <div class="stat-label">Latest Update</div>
+                    <div class="stat-number">
+                        <?php echo $latest_created_at ? date('M j, Y g:i A', strtotime($latest_created_at)) : 'N/A'; ?>
+                    </div>
+                    <div class="stat-label">Latest Listing Update</div>
                 </div>
                 <?php endif; ?>
             </div>
