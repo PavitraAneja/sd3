@@ -58,7 +58,7 @@ if ($result) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>California Homes</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <!-- <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" /> -->
     <style>
         * {
             margin: 0;
@@ -604,10 +604,63 @@ if ($result) {
     <div id="map"></div>
     <?php endif; ?>
 
-    <script>
-    const listings = <?php echo json_encode($listings); ?>;
-    </script>
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="js/scripts.js"></script>
+    <!-- <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script> -->
+    <script async
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB0szWlIt9Vj26cM300wTcWxwL0ABHZ9HE
+&loading=async&callback=initMap">
+</script>
+    <!-- <script src="js/scripts.js"></script> -->
 </body>
 </html>
+
+
+<script>
+const listings = <?php echo json_encode($listings); ?>;
+
+function initMap() {
+    if (!listings.length) return;
+
+    // Center map on the first property, or a default location
+    const center = { 
+        lat: parseFloat(listings[0].lat) || 36.7783, 
+        lng: parseFloat(listings[0].lng) || -119.4179 
+    };
+
+    const map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 8,
+        center: center
+    });
+
+    listings.forEach(home => {
+        if (home.lat && home.lng) {
+            const marker = new google.maps.Marker({
+                position: { lat: parseFloat(home.lat), lng: parseFloat(home.lng) },
+                map: map,
+                title: home.address
+            });
+
+            const infoWindow = new google.maps.InfoWindow({
+                content: `
+                    <div style="max-width:200px;">
+                        <strong>${home.address}</strong><br>
+                        Price: $${home.price}<br>
+                        Beds: ${home.beds}, Baths: ${home.baths}<br>
+                        <img src="${home.photo}" alt="Photo" style="width:100%;margin-top:5px;">
+                    </div>
+                `
+            });
+
+            marker.addListener('click', function() {
+                infoWindow.open(map, marker);
+            });
+        }
+    });
+}
+
+// Initialize map after page load
+window.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('map')) {
+        initMap();
+    }
+});
+</script>
