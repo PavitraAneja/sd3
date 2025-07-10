@@ -677,12 +677,10 @@ sort($cities);
     <div id="map"></div>
     <?php endif; ?>
 
-    <!-- <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script> -->
     <script async
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB0szWlIt9Vj26cM300wTcWxwL0ABHZ9HE
 &loading=async&callback=initMap">
 </script>
-    <!-- <script src="js/scripts.js"></script> -->
 </body>
 </html>
 
