@@ -1,7 +1,7 @@
 <?php
-include('includes/db_local.php'); // Use local database settings
-include('includes/functions.php');
-include('includes/pagination.php');
+include ('includes/db_local.php');  // Use local database settings
+include ('includes/functions.php');
+include ('includes/pagination.php');
 
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
@@ -24,14 +24,15 @@ $result = $conn->query($sql);
 
 $listings = [];
 if ($result) {
-    while($row = $result->fetch_assoc()) {
+    while ($row = $result->fetch_assoc()) {
         $photos = [];
         if (!empty($row['L_Photos'])) {
             $photos = json_decode($row['L_Photos'], true);
-            if (!is_array($photos)) $photos = [];
+            if (!is_array($photos))
+                $photos = [];
         }
         $firstPhoto = $photos[0] ?? 'https://via.placeholder.com/300x200?text=No+Photo';
-        
+
         $listings[] = [
             'id' => $row['L_ListingID'] ?? '',
             'address' => ($row['L_Address'] ?? '') . ', ' . ($row['L_City'] ?? '') . ', ' . ($row['L_State'] ?? '') . ' ' . ($row['L_Zip'] ?? ''),
@@ -51,6 +52,16 @@ if ($result) {
         ];
     }
 }
+
+// Collect unique cities from the entire property table
+$cities = [];
+$city_result = $conn->query("SELECT DISTINCT L_City FROM rets_property WHERE L_City IS NOT NULL AND L_City != '' ORDER BY L_City ASC");
+if ($city_result) {
+    while ($row = $city_result->fetch_assoc()) {
+        $cities[] = $row['L_City'];
+    }
+}
+sort($cities);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -164,9 +175,32 @@ if ($result) {
 
         .search-form {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(6, 1fr); /* 5 filters + 1 button group */
             gap: 1rem;
             align-items: end;
+        }
+        .search-form .form-group {
+            margin-bottom: 0;
+        }
+        .search-form .form-group.buttons {
+            display: flex;
+            flex-direction:row;
+            gap: 1rem;
+            align-items: end;
+        }
+        @media (max-width: 900px) {
+            .search-form {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+        }
+        @media (max-width: 600px) {
+            .search-form {
+                grid-template-columns: 1fr;
+            }
+            .search-form .form-group.buttons {
+                flex-direction: row;
+                justify-content: flex-start;
+            }
         }
 
         .form-group {
@@ -215,7 +249,6 @@ if ($result) {
             background: white;
             padding: 1.5rem 0;
             border-bottom: 1px solid #e2e8f0;
-            margin-top: 2rem;
         }
 
         .stats-content {
@@ -496,26 +529,66 @@ if ($result) {
             <form method="GET" class="search-form">
                 <div class="form-group">
                     <label for="city">City</label>
-                    <input type="text" id="city" name="city" placeholder="Enter city" value="<?php echo $_GET['city'] ?? ''; ?>">
+                    <select id="city" name="city">
+                        <option value="">All Cities</option>
+                        <?php foreach ($cities as $city): ?>
+                            <option value="<?php echo htmlspecialchars(trim($city)); ?>" <?php if (isset($_GET['city']) && trim($_GET['city']) === trim($city)) echo 'selected'; ?>><?php echo htmlspecialchars(trim($city)); ?></option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="min">Min Price</label>
-                    <input type="number" id="min" name="min" placeholder="$0" value="<?php echo $_GET['min'] ?? ''; ?>">
+                    <select id="min" name="min">
+                        <?php
+                        $min_price_options = [200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000];
+                        foreach ($min_price_options as $price) {
+                            $label = $price == 0 ? '$0' : ('$' . number_format($price / 1000, 0) . 'k');
+                            echo '<option value="' . $price . '"' . (isset($_GET['min']) && $_GET['min'] == $price ? ' selected' : '') . '>' . $label . '</option>';
+                        }
+                        ?>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="max">Max Price</label>
-                    <input type="number" id="max" name="max" placeholder="No limit" value="<?php echo $_GET['max'] ?? ''; ?>">
+                    <select id="max" name="max">
+                        <option value="" <?php echo (!isset($_GET['max']) || $_GET['max'] === '') ? 'selected' : ''; ?>>Not Limited</option>
+                        <?php
+                        $max_price_options = [300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000];
+                        foreach ($max_price_options as $price) {
+                            $label = '$' . number_format($price / 1000, 0) . 'k';
+                            $selected = (isset($_GET['max']) && $_GET['max'] == $price) ? ' selected' : '';
+                            echo "<option value=\"$price\"$selected>$label</option>";
+                        }
+                        ?>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="beds">Min Beds</label>
-                    <input type="number" id="beds" name="beds" placeholder="Any" value="<?php echo $_GET['beds'] ?? ''; ?>">
-                </div>
+                    <select id="beds" name="beds">
+                        <option value="">Any</option>
+                        <?php
+                        $bed_options = [1, 2, 3, 4, 5];
+                        foreach ($bed_options as $bed) {
+                            echo '<option value="' . $bed . '"' . (isset($_GET['beds']) && $_GET['beds'] == $bed ? ' selected' : '') . '>' . $bed . '</option>';
+                        }
+                        echo '<option value="6+"' . (isset($_GET['beds']) && $_GET['beds'] == '6+' ? ' selected' : '') . '>6+</option>';
+                        ?>
+                    </select>                </div>
                 <div class="form-group">
                     <label for="baths">Min Baths</label>
-                    <input type="number" id="baths" name="baths" placeholder="Any" value="<?php echo $_GET['baths'] ?? ''; ?>">
-                </div>
-                <div class="form-group">
-                    <button type="submit" class="search-btn">Search Properties</button>
+                    <select id="baths" name="baths">
+                        <option value="">Any</option>
+                        <?php
+                        $bath_options = [1, 2, 3, 4, 5];
+                        foreach ($bath_options as $bath) {
+                            echo '<option value="' . $bath . '"' . (isset($_GET['baths']) && $_GET['baths'] == $bath ? ' selected' : '') . '>' . $bath . '</option>';
+                        }
+                        echo '<option value="6+"' . (isset($_GET['baths']) && $_GET['baths'] == '6+' ? ' selected' : '') . '>6+</option>';
+                        ?>
+                    </select>                </div>
+                <div class="form-group buttons">
+                    <button type="submit" class="search-btn">Search</button>
+                    <button type="button" class="search-btn" style="background: #e2e8f0; color: #333;" id="clear-filters-btn">Clear</button>
                 </div>
             </form>
         </div>
@@ -556,7 +629,7 @@ if ($result) {
             </div>
             <?php else: ?>
             <div class="property-grid">
-                <?php foreach($listings as $home): ?>
+                <?php foreach ($listings as $home): ?>
                 <a href="property.php?id=<?php echo htmlspecialchars($home['id']); ?>" class="property-card">
                     <div class="property-image">
                         <img src="<?php echo htmlspecialchars($home['photo']); ?>" alt="California Home Photo">
@@ -593,7 +666,7 @@ if ($result) {
 
             <?php if ($total > $limit): ?>
             <div class="pagination">
-                <?php echo paginate($total, $limit, $page, '?'.http_build_query(array_merge($_GET, ['page' => null])) . '&'); ?>
+                <?php echo paginate($total, $limit, $page, '?' . http_build_query(array_merge($_GET, ['page' => null])) . '&'); ?>
             </div>
             <?php endif; ?>
             <?php endif; ?>
@@ -662,5 +735,9 @@ window.addEventListener('DOMContentLoaded', function() {
     if (document.getElementById('map')) {
         initMap();
     }
+});
+
+document.getElementById('clear-filters-btn')?.addEventListener('click', function() {
+    window.location.href = 'index.php';
 });
 </script>

@@ -239,7 +239,6 @@ if ($result) {
             background: white;
             padding: 1.5rem 0;
             border-bottom: 1px solid #e2e8f0;
-            margin-top: 2rem;
         }
 
         .stats-content {
@@ -506,7 +505,7 @@ if ($result) {
                     <input type="text" id="listing_id" name="listing_id" placeholder="Search by listing ID" value="<?php echo $_GET['listing_id'] ?? ''; ?>">
                 </div>
                 <div class="form-group">
-                    <button type="submit" class="search-btn">Search Open Houses</button>
+                    <button type="submit" class="search-btn">Search</button>
                 </div>
             </form>
         </div>
