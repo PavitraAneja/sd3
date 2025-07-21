@@ -1,8 +1,14 @@
 <?php
+
  session_start();
 include('api/db.php'); 
 include('includes/functions.php');
 include('includes/pagination.php');
+
+// include ('includes/db_local.php');  // Use local database settings
+// include ('includes/functions.php');
+// include ('includes/pagination.php');
+
 
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
@@ -18,21 +24,42 @@ $count_sql = "SELECT COUNT(*) as total FROM rets_property_yu $filter_sql";
 $count_result = $conn->query($count_sql);
 $total = $count_result ? $count_result->fetch_assoc()['total'] : 0;
 
+
 $sql = "SELECT L_ListingID, L_Address, L_City, L_State, L_Zip, L_SystemPrice, L_Keyword2, LM_Dec_3, LM_Int2_3, L_Photos, L_Remarks, LMD_MP_Latitude as Latitude, LMD_MP_Longitude as Longitude, 
         LA1_UserFirstName, LA1_UserLastName, LO1_OrganizationName, L_Status, created_at
         FROM rets_property_yu $filter_sql ORDER BY created_at DESC LIMIT $limit OFFSET $offset";
+
+// Get the latest created_at from the entire table
+// $latest_created_at = null;
+// $latest_result = $conn->query('SELECT MAX(created_at) as latest_created_at FROM rets_property');
+// if ($latest_result && ($row = $latest_result->fetch_assoc())) {
+//     $latest_created_at = $row['latest_created_at'];
+// }
+
+// $sql = "SELECT L_ListingID, L_Address, L_City, L_State, L_Zip, L_SystemPrice, L_Keyword2, LM_Dec_3, LM_Int2_3, L_Photos, L_Remarks, LMD_MP_Latitude as Latitude, LMD_MP_Longitude as Longitude, 
+//         LA1_UserFirstName, LA1_UserLastName, LO1_OrganizationName, L_Status, created_at
+//         FROM rets_property $filter_sql ORDER BY created_at DESC LIMIT $limit OFFSET $offset";
+
 $result = $conn->query($sql);
 
 $listings = [];
 if ($result) {
-    while($row = $result->fetch_assoc()) {
+    while ($row = $result->fetch_assoc()) {
         $photos = [];
         if (!empty($row['L_Photos'])) {
             $photos = json_decode($row['L_Photos'], true);
+
             if (!is_array($photos)) $photos = [];
         }
         $firstPhoto = $photos[0] ?? 'https://via.placeholder.com/300x200?text=No+Photo';
         
+
+//             if (!is_array($photos))
+//                 $photos = [];
+//         }
+//         $firstPhoto = $photos[0] ?? 'https://via.placeholder.com/300x200?text=No+Photo';
+
+
         $listings[] = [
             'id' => $row['L_ListingID'] ?? '',
             'address' => ($row['L_Address'] ?? '') . ', ' . ($row['L_City'] ?? '') . ', ' . ($row['L_State'] ?? '') . ' ' . ($row['L_Zip'] ?? ''),
@@ -52,6 +79,16 @@ if ($result) {
         ];
     }
 }
+
+// Collect unique cities from the entire property table
+$cities = [];
+$city_result = $conn->query("SELECT DISTINCT L_City FROM rets_property WHERE L_City IS NOT NULL AND L_City != '' ORDER BY L_City ASC");
+if ($city_result) {
+    while ($row = $city_result->fetch_assoc()) {
+        $cities[] = $row['L_City'];
+    }
+}
+sort($cities);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -59,7 +96,7 @@ if ($result) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>California Homes</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
     <style>
         * {
             margin: 0;
@@ -165,9 +202,33 @@ if ($result) {
 
         .search-form {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+
+            grid-template-columns: repeat(6, 1fr); /* 5 filters + 1 button group */
             gap: 1rem;
             align-items: end;
+        }
+        .search-form .form-group {
+            margin-bottom: 0;
+        }
+        .search-form .form-group.buttons {
+            display: flex;
+            flex-direction:row;
+            gap: 1rem;
+            align-items: end;
+        }
+        @media (max-width: 900px) {
+            .search-form {
+                grid-template-columns: 1fr 1fr 1fr;
+            }
+        }
+        @media (max-width: 600px) {
+            .search-form {
+                grid-template-columns: 1fr;
+            }
+            .search-form .form-group.buttons {
+                flex-direction: row;
+                justify-content: flex-start;
+            }
         }
 
         .form-group {
@@ -216,6 +277,7 @@ if ($result) {
             background: white;
             padding: 1.5rem 0;
             border-bottom: 1px solid #e2e8f0;
+
             margin-top: 2rem;
         }
 
@@ -489,6 +551,7 @@ if ($result) {
                 <a href="login.php" class="btn btn-primary btn-sm">Login</a>
             </li>
         <?php endif; ?>
+
                         <li><a href="index.php">Homes for Sale</a></li>
                         <li><a href="openhouse.php">Open Houses</a></li>
                     </ul>
@@ -509,26 +572,67 @@ if ($result) {
             <form method="GET" class="search-form">
                 <div class="form-group">
                     <label for="city">City</label>
-                    <input type="text" id="city" name="city" placeholder="Enter city" value="<?php echo $_GET['city'] ?? ''; ?>">
+
+                    <select id="city" name="city">
+                        <option value="">All Cities</option>
+                        <?php foreach ($cities as $city): ?>
+                            <option value="<?php echo htmlspecialchars(trim($city)); ?>" <?php if (isset($_GET['city']) && trim($_GET['city']) === trim($city)) echo 'selected'; ?>><?php echo htmlspecialchars(trim($city)); ?></option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="min">Min Price</label>
-                    <input type="number" id="min" name="min" placeholder="$0" value="<?php echo $_GET['min'] ?? ''; ?>">
+                    <select id="min" name="min">
+                        <?php
+                        $min_price_options = [200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000];
+                        foreach ($min_price_options as $price) {
+                            $label = $price == 0 ? '$0' : ('$' . number_format($price / 1000, 0) . 'k');
+                            echo '<option value="' . $price . '"' . (isset($_GET['min']) && $_GET['min'] == $price ? ' selected' : '') . '>' . $label . '</option>';
+                        }
+                        ?>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="max">Max Price</label>
-                    <input type="number" id="max" name="max" placeholder="No limit" value="<?php echo $_GET['max'] ?? ''; ?>">
+                    <select id="max" name="max">
+                        <option value="" <?php echo (!isset($_GET['max']) || $_GET['max'] === '') ? 'selected' : ''; ?>>Not Limited</option>
+                        <?php
+                        $max_price_options = [300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000];
+                        foreach ($max_price_options as $price) {
+                            $label = '$' . number_format($price / 1000, 0) . 'k';
+                            $selected = (isset($_GET['max']) && $_GET['max'] == $price) ? ' selected' : '';
+                            echo "<option value=\"$price\"$selected>$label</option>";
+                        }
+                        ?>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="beds">Min Beds</label>
-                    <input type="number" id="beds" name="beds" placeholder="Any" value="<?php echo $_GET['beds'] ?? ''; ?>">
-                </div>
+                    <select id="beds" name="beds">
+                        <option value="">Any</option>
+                        <?php
+                        $bed_options = [1, 2, 3, 4, 5];
+                        foreach ($bed_options as $bed) {
+                            echo '<option value="' . $bed . '"' . (isset($_GET['beds']) && $_GET['beds'] == $bed ? ' selected' : '') . '>' . $bed . '</option>';
+                        }
+                        echo '<option value="6+"' . (isset($_GET['beds']) && $_GET['beds'] == '6+' ? ' selected' : '') . '>6+</option>';
+                        ?>
+                    </select>                </div>
                 <div class="form-group">
                     <label for="baths">Min Baths</label>
-                    <input type="number" id="baths" name="baths" placeholder="Any" value="<?php echo $_GET['baths'] ?? ''; ?>">
-                </div>
-                <div class="form-group">
-                    <button type="submit" class="search-btn">Search Properties</button>
+                    <select id="baths" name="baths">
+                        <option value="">Any</option>
+                        <?php
+                        $bath_options = [1, 2, 3, 4, 5];
+                        foreach ($bath_options as $bath) {
+                            echo '<option value="' . $bath . '"' . (isset($_GET['baths']) && $_GET['baths'] == $bath ? ' selected' : '') . '>' . $bath . '</option>';
+                        }
+                        echo '<option value="6+"' . (isset($_GET['baths']) && $_GET['baths'] == '6+' ? ' selected' : '') . '>6+</option>';
+                        ?>
+                    </select>                </div>
+                <div class="form-group buttons">
+                    <button type="submit" class="search-btn">Search</button>
+                    <button type="button" class="search-btn" style="background: #e2e8f0; color: #333;" id="clear-filters-btn">Clear</button>
                 </div>
             </form>
         </div>
@@ -547,8 +651,10 @@ if ($result) {
                 </div>
                 <?php if (!empty($listings)): ?>
                 <div class="stat-item">
-                    <div class="stat-number"><?php echo date('M j', strtotime($listings[0]['created_at'])); ?></div>
-                    <div class="stat-label">Latest Update</div>
+                    <div class="stat-number">
+                        <?php echo $latest_created_at ? date('M j, Y g:i A', strtotime($latest_created_at)) : 'N/A'; ?>
+                    </div>
+                    <div class="stat-label">Latest Listing Update</div>
                 </div>
                 <?php endif; ?>
             </div>
@@ -569,7 +675,9 @@ if ($result) {
             </div>
             <?php else: ?>
             <div class="property-grid">
-                <?php foreach($listings as $home): ?>
+
+                <?php foreach ($listings as $home): ?>
+
                 <a href="property.php?id=<?php echo htmlspecialchars($home['id']); ?>" class="property-card">
                     <div class="property-image">
                         <img src="<?php echo htmlspecialchars($home['photo']); ?>" alt="California Home Photo">
@@ -604,9 +712,10 @@ if ($result) {
                 <?php endforeach; ?>
             </div>
 
+
             <?php if ($total > $limit): ?>
             <div class="pagination">
-                <?php echo paginate($total, $limit, $page, '?'.http_build_query(array_merge($_GET, ['page' => null])) . '&'); ?>
+                <?php echo paginate($total, $limit, $page, '?' . http_build_query(array_merge($_GET, ['page' => null])) . '&'); ?>
             </div>
             <?php endif; ?>
             <?php endif; ?>
@@ -617,10 +726,65 @@ if ($result) {
     <div id="map"></div>
     <?php endif; ?>
 
-    <script>
-    const listings = <?php echo json_encode($listings); ?>;
-    </script>
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="js/scripts.js"></script>
+    <script async
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB0szWlIt9Vj26cM300wTcWxwL0ABHZ9HE
+&loading=async&callback=initMap">
+</script>
 </body>
 </html>
+
+
+<script>
+const listings = <?php echo json_encode($listings); ?>;
+
+function initMap() {
+    if (!listings.length) return;
+
+    // Center map on the first property, or a default location
+    const center = { 
+        lat: parseFloat(listings[0].lat) || 36.7783, 
+        lng: parseFloat(listings[0].lng) || -119.4179 
+    };
+
+    const map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 8,
+        center: center
+    });
+
+    listings.forEach(home => {
+        if (home.lat && home.lng) {
+            const marker = new google.maps.Marker({
+                position: { lat: parseFloat(home.lat), lng: parseFloat(home.lng) },
+                map: map,
+                title: home.address
+            });
+
+            const infoWindow = new google.maps.InfoWindow({
+                content: `
+                    <div style="max-width:200px;">
+                        <strong>${home.address}</strong><br>
+                        Price: $${home.price}<br>
+                        Beds: ${home.beds}, Baths: ${home.baths}<br>
+                        <img src="${home.photo}" alt="Photo" style="width:100%;margin-top:5px;">
+                    </div>
+                `
+            });
+
+            marker.addListener('click', function() {
+                infoWindow.open(map, marker);
+            });
+        }
+    });
+}
+
+// Initialize map after page load
+window.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('map')) {
+        initMap();
+    }
+});
+
+document.getElementById('clear-filters-btn')?.addEventListener('click', function() {
+    window.location.href = 'index.php';
+});
+</script>

@@ -6,6 +6,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 include('../api/db.php');
+// Include local database configuration
 
 // Trestle API credentials
 $token_type = 'trestle';
@@ -13,12 +14,12 @@ $client_id = 'trestle_IDXExchangeCRMLSRECore20240122014147';
 $client_secret = 'e579677f6297447aa794739558011d06';
 $token_url = 'https://api-trestle.corelogic.com/trestle/oidc/connect/token';
 
-
 echo "<h2>🔑 Trestle API Token Generation</h2>";
 echo "<hr>";
 
 // Check for cached token
 $stmt = $conn->prepare("SELECT access_token, expires_at FROM token_store_yu WHERE token_type = ?");
+
 $stmt->bind_param("s", $token_type);
 $stmt->execute();
 $stmt->store_result();
@@ -70,6 +71,7 @@ if ($http_code == 200) {
 
         // Upsert token in database
         $stmt = $conn->prepare("
+
             INSERT INTO token_store_yu (token_type, access_token, expires_at)
             VALUES (?, ?, ?)
             ON DUPLICATE KEY UPDATE access_token = VALUES(access_token), expires_at = VALUES(expires_at)
@@ -95,3 +97,5 @@ if ($http_code == 200) {
 }
 
 $conn->close();
+
+

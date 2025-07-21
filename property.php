@@ -1,6 +1,11 @@
 <?php
+
 include('api/db.php');
 include('includes/functions.php');
+
+// include ('includes/db_local.php');
+// include ('includes/functions.php');
+
 
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
@@ -15,9 +20,15 @@ if (empty($property_id)) {
 }
 
 // Fetch property details
+
 $sql = "SELECT * FROM rets_property_yu WHERE L_ListingID = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("s", $property_id);
+
+// $sql = 'SELECT * FROM rets_property WHERE L_ListingID = ?';
+// $stmt = $conn->prepare($sql);
+// $stmt->bind_param('s', $property_id);
+
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -32,20 +43,46 @@ $property = $result->fetch_assoc();
 $photos = [];
 if (!empty($property['L_Photos'])) {
     $photos = json_decode($property['L_Photos'], true);
-    if (!is_array($photos)) $photos = [];
+
+//     if (!is_array($photos)) $photos = [];
+// }
+
+// // Parse all data if available
+// $all_data = [];
+// if (!empty($property['L_alldata'])) {
+//     $all_data = json_decode($property['L_alldata'], true);
+//     if (!is_array($all_data)) $all_data = [];
+// }
+
+// // Get open houses for this property
+// $openhouse_sql = "SELECT * FROM rets_openhouse WHERE L_ListingID = ? ORDER BY OpenHouseDate ASC";
+// $openhouse_stmt = $conn->prepare($openhouse_sql);
+// $openhouse_stmt->bind_param("s", $property_id);
+// $openhouse_stmt->execute();
+// $openhouse_result = $openhouse_stmt->get_result();
+
+// $openhouses = [];
+// while ($row = $openhouse_result->fetch_assoc()) {
+//     $openhouses[] = $row;
+// }
+
+
+    if (!is_array($photos))
+        $photos = [];
 }
 
 // Parse all data if available
 $all_data = [];
 if (!empty($property['L_alldata'])) {
     $all_data = json_decode($property['L_alldata'], true);
-    if (!is_array($all_data)) $all_data = [];
+    if (!is_array($all_data))
+        $all_data = [];
 }
 
 // Get open houses for this property
-$openhouse_sql = "SELECT * FROM rets_openhouse WHERE L_ListingID = ? ORDER BY OpenHouseDate ASC";
+$openhouse_sql = 'SELECT * FROM rets_openhouse WHERE L_ListingID = ? ORDER BY OpenHouseDate ASC';
 $openhouse_stmt = $conn->prepare($openhouse_sql);
-$openhouse_stmt->bind_param("s", $property_id);
+$openhouse_stmt->bind_param('s', $property_id);
 $openhouse_stmt->execute();
 $openhouse_result = $openhouse_stmt->get_result();
 
@@ -312,6 +349,36 @@ $conn->close();
             background: #f8d7da;
             color: #721c24;
         }
+
+        .property-header-row {
+            display: flex;
+            align-items: stretch;
+            gap: 2rem;
+            margin-bottom: 20px;
+        }
+        .property-header {
+            flex: 1 1 0;
+        }
+        #map {
+            min-width: 300px;
+            max-width: 600px;
+            width: 100%;
+            height: 200px;
+            border-radius: 12px;
+        }
+        @media (max-width: 900px) {
+            .property-header-row {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            #map {
+                width: 100%;
+                min-width: 0;
+                height: 200px;
+                margin-left: 0;
+            }
+        }
+      
         @media (max-width: 768px) {
             .property-content {
                 grid-template-columns: 1fr;
@@ -322,6 +389,7 @@ $conn->close();
         }
     </style>
 </head>
+
 <body>
     <header>
         <div class="container">
@@ -333,7 +401,8 @@ $conn->close();
                 </div>
                 <nav>
                     <ul>
-                    <li><a href="index.php">Homes for Bale</a></li>
+
+                    <li><a href="index.php">Homes for Sale</a></li>
                     <li><a href="openhouse.php">Open Houses</a></li>
                     </ul>
                 </nav>
@@ -343,21 +412,53 @@ $conn->close();
     <div class="container">
         <a href="index.php" class="back-btn">← Back to Properties</a>
         
-        <div class="property-header">
-            <h1 class="property-title"><?php echo htmlspecialchars($property['L_Address']); ?></h1>
-            <div class="property-price">$<?php echo number_format($property['L_SystemPrice']); ?></div>
-            <div class="property-address">
-                <?php echo htmlspecialchars($property['L_Address']); ?>, 
-                <?php echo htmlspecialchars($property['L_City']); ?>, 
-                <?php echo htmlspecialchars($property['L_State']); ?> 
-                <?php echo htmlspecialchars($property['L_Zip']); ?>
+        <div class="property-header-row">
+            <div class="property-header">
+                <h1 class="property-title"><?php echo htmlspecialchars($property['L_Address']); ?></h1>
+                <div class="property-price">$<?php echo number_format($property['L_SystemPrice']); ?></div>
+                <div class="property-address">
+                    <?php echo htmlspecialchars($property['L_Address']); ?>, 
+                    <?php echo htmlspecialchars($property['L_City']); ?>, 
+                    <?php echo htmlspecialchars($property['L_State']); ?> 
+                    <?php echo htmlspecialchars($property['L_Zip']); ?>
+                </div>
+                <?php if (!empty($property['L_Status'])): ?>
+                <span class="status-badge status-<?php echo strtolower($property['L_Status']); ?>">
+                    <?php echo htmlspecialchars($property['L_Status']); ?>
+                </span>
+                <?php endif; ?>
             </div>
-            <?php if (!empty($property['L_Status'])): ?>
-            <span class="status-badge status-<?php echo strtolower($property['L_Status']); ?>">
-                <?php echo htmlspecialchars($property['L_Status']); ?>
-            </span>
+            <?php
+            // Use the correct keys for your lat/lng fields!
+            $lat = !empty($property['lat']) ? $property['lat'] : (!empty($property['LMD_MP_Latitude']) ? $property['LMD_MP_Latitude'] : null);
+            $lng = !empty($property['lng']) ? $property['lng'] : (!empty($property['LMD_MP_Longitude']) ? $property['LMD_MP_Longitude'] : null);
+            ?>
+            <?php if (!empty($lat) && !empty($lng)): ?>
+                <div id="map"></div>
             <?php endif; ?>
         </div>
+        <?php if (!empty($lat) && !empty($lng)): ?>
+        <script>
+            function initMap() {
+                const center = {
+                    lat: parseFloat('<?php echo $lat; ?>'),
+                    lng: parseFloat('<?php echo $lng; ?>')
+                };
+                const map = new google.maps.Map(document.getElementById('map'), {
+                    zoom: 14,
+                    center: center
+                });
+                new google.maps.Marker({
+                    position: center,
+                    map: map,
+                    title: "<?php echo htmlspecialchars($property['L_Address']); ?>"
+                });
+            }
+        </script>
+        <script async
+            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB0szWlIt9Vj26cM300wTcWxwL0ABHZ9HE&callback=initMap">
+        </script>
+        <?php endif; ?>
 
         <div class="property-stats">
             <div class="stat-item">
@@ -418,6 +519,7 @@ $conn->close();
                     </div>
                 </div>
 
+
                 <?php if (!empty($property['L_Remarks'])): ?>
                 <div class="property-description">
                     <h2 class="section-title">Description</h2>
@@ -454,10 +556,10 @@ $conn->close();
                             <?php echo date('l, F j, Y', strtotime($openhouse['OpenHouseDate'])); ?>
                         </div>
                         <div class="openhouse-time">
-                            <?php 
+                            <?php
                             if ($openhouse['OH_StartTime'] && $openhouse['OH_EndTime']) {
-                                echo date('g:i A', strtotime($openhouse['OH_StartTime'])) . ' - ' . 
-                                     date('g:i A', strtotime($openhouse['OH_EndTime']));
+                                echo date('g:i A', strtotime($openhouse['OH_StartTime'])) . ' - '
+                                    . date('g:i A', strtotime($openhouse['OH_EndTime']));
                             }
                             ?>
                         </div>
@@ -485,24 +587,5 @@ $conn->close();
         </div>
     </div>
 
-    <script>
-    function changeMainPhoto(photoUrl) {
-        document.getElementById('main-photo').src = photoUrl;
-    }
-
-    <?php if (!empty($property['LMD_MP_Latitude']) && !empty($property['LMD_MP_Longitude'])): ?>
-    // Initialize map
-    const map = L.map('property-map').setView([<?php echo $property['LMD_MP_Latitude']; ?>, <?php echo $property['LMD_MP_Longitude']; ?>], 15);
-    
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-
-    L.marker([<?php echo $property['LMD_MP_Latitude']; ?>, <?php echo $property['LMD_MP_Longitude']; ?>])
-        .addTo(map)
-        .bindPopup('<?php echo htmlspecialchars($property['L_Address']); ?>');
-    <?php endif; ?>
-    </script>
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </body>
 </html> 
