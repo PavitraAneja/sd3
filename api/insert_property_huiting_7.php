@@ -9,7 +9,7 @@ $host   = 'localhost';
 $dbname = 'boxgra6_sd3';
 $dbuser = 'boxgra6_sd3';
 $dbpass = 'Real_estate123$';
-$table1 = 'rets_property';
+$table1 = 'rets_property_huiting';
 
 /* ---------- DB CONNECT ---------- */
 //echo "STEP 1: connecting database...\n";
@@ -100,19 +100,48 @@ $cols = "
   LMD_MP_Latitude,LMD_MP_Longitude,LA1_UserFirstName,LA1_UserLastName,
   L_Status,LO1_OrganizationName,L_Remarks,L_Photos,PhotoTime,PhotoCount,L_alldata";
 $qmarks = rtrim(str_repeat('?,',30),',');
-$ins    = $mysqli->prepare("INSERT INTO $table1 ($cols) VALUES ($qmarks)");
+
+$ins = $mysqli->prepare("
+  INSERT INTO $table1 ($cols) VALUES ($qmarks)
+  ON DUPLICATE KEY UPDATE
+    L_DisplayId           = VALUES(L_DisplayId),
+    L_Address             = VALUES(L_Address),
+    L_Zip                 = VALUES(L_Zip),
+    LM_char10_70          = VALUES(LM_char10_70),
+    L_AddressStreet       = VALUES(L_AddressStreet),
+    L_City                = VALUES(L_City),
+    L_State               = VALUES(L_State),
+    L_Class               = VALUES(L_Class),
+    L_Type_               = VALUES(L_Type_),
+    L_Keyword2            = VALUES(L_Keyword2),
+    LM_Dec_3              = VALUES(LM_Dec_3),
+    L_Keyword1            = VALUES(L_Keyword1),
+    L_Keyword5            = VALUES(L_Keyword5),
+    L_Keyword7            = VALUES(L_Keyword7),
+    L_SystemPrice         = VALUES(L_SystemPrice),
+    LM_Int2_3             = VALUES(LM_Int2_3),
+    L_ListingDate         = VALUES(L_ListingDate),
+    ListingContractDate   = VALUES(ListingContractDate),
+    LMD_MP_Latitude       = VALUES(LMD_MP_Latitude),
+    LMD_MP_Longitude      = VALUES(LMD_MP_Longitude),
+    LA1_UserFirstName     = VALUES(LA1_UserFirstName),
+    LA1_UserLastName      = VALUES(LA1_UserLastName),
+    L_Status              = VALUES(L_Status),
+    LO1_OrganizationName  = VALUES(LO1_OrganizationName),
+    L_Remarks             = VALUES(L_Remarks),
+    L_Photos              = VALUES(L_Photos),
+    PhotoTime             = VALUES(PhotoTime),
+    PhotoCount            = VALUES(PhotoCount),
+    L_alldata             = VALUES(L_alldata)
+");
 if (!$ins) die("prepare failed: ".$mysqli->error."\n");
 $types  = str_repeat('s',30);   // binding all as string for simplicity
 
-$insCnt = $skipCnt = 0;
+$insCnt = 0;
 //echo "STEP 5: inserting…\n";
 
 foreach ($page->value as $row) {
-    // duplicate check
-    $safeKey = $mysqli->real_escape_string($row->ListingKey);
-    if ($mysqli->query("SELECT 1 FROM $table1 WHERE L_ListingID='$safeKey' LIMIT 1")->num_rows){
-        $skipCnt++; continue;
-    }
+
     // build data
     $media=[]; if (!empty($row->Media)) foreach ($row->Media as $m) $media[]=$m->MediaURL;
     $data=[
@@ -152,6 +181,6 @@ foreach ($page->value as $row) {
         //echo "Insert error {$row->ListingKey}: ".$ins->error."\n";
 }
 $ins->close();
-//echo "STEP 5 DONE: inserted=$insCnt skipped=$skipCnt\n";
+//echo "STEP 5 DONE: inserted/updated=$insCnt\n";
 $mysqli->close();
 ?>
