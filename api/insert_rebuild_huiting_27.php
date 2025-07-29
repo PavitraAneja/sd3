@@ -14,7 +14,7 @@ $dbname = 'boxgra6_sd3';
 $user   = 'boxgra6_sd3';
 $pass   = 'Real_estate123$';
 
-$tableListings = 'rets_property';          // target
+$tableListings = 'rets_property_huiting';          // target
 $tableOffset   = 'insert_property_offset'; // cursor
 
 
