@@ -30,15 +30,16 @@ $sql = "SELECT L_ListingID, L_Address, L_City, L_State, L_Zip, L_SystemPrice, L_
         FROM rets_property_yu $filter_sql ORDER BY created_at DESC LIMIT $limit OFFSET $offset";
 
 // Get the latest created_at from the entire table
-// $latest_created_at = null;
-// $latest_result = $conn->query('SELECT MAX(created_at) as latest_created_at FROM rets_property');
-// if ($latest_result && ($row = $latest_result->fetch_assoc())) {
-//     $latest_created_at = $row['latest_created_at'];
-// }
+$latest_created_at = null;
+$latest_result = $conn->query('SELECT MAX(created_at) as latest_created_at FROM rets_property');
+if ($latest_result && ($row = $latest_result->fetch_assoc())) {
+    $latest_created_at = $row['latest_created_at'];
+}
 
 // $sql = "SELECT L_ListingID, L_Address, L_City, L_State, L_Zip, L_SystemPrice, L_Keyword2, LM_Dec_3, LM_Int2_3, L_Photos, L_Remarks, LMD_MP_Latitude as Latitude, LMD_MP_Longitude as Longitude, 
 //         LA1_UserFirstName, LA1_UserLastName, LO1_OrganizationName, L_Status, created_at
 //         FROM rets_property $filter_sql ORDER BY created_at DESC LIMIT $limit OFFSET $offset";
+//
 
 $result = $conn->query($sql);
 
