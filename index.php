@@ -1286,6 +1286,21 @@ sort($cities);
             </div>
                 <nav>
                     <ul>
+        <?php if (isset($_SESSION['user_id'])): ?>
+    <li style="color: white; margin-right: 10px;">
+        Welcome, <?php echo htmlspecialchars($_SESSION['email']); ?>
+    </li>
+    <li>
+        <a href="saved_list.php" class="btn btn-outline-light btn-sm">View Saved Listings</a>
+    </li>
+    <li>
+        <a href="logout.php" class="btn btn-danger btn-sm">Logout</a>
+    </li>
+        <?php else: ?>
+            <li>
+                <a href="login.php" class="btn btn-primary btn-sm">Login</a>
+            </li>
+        <?php endif; ?>
                         <li><a href="index.php">Homes for Sale</a></li>
                         <li><a href="openhouse.php">Open Houses</a></li>
                     </ul>
