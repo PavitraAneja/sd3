@@ -69,7 +69,7 @@ if (count($saved_ids) > 0) {
                         <div class="card-body">
                             <h5 class="card-title"><?php echo htmlspecialchars($listing['address']); ?></h5>
                             <p class="card-text"><strong>Price:</strong> $<?php echo $listing['price']; ?></p>
-                            <a href="property.php?id=<?php echo urlencode($listing['id']); ?>" class="btn btn-primary">View Details</a>
+                            <a href="property.php?id=<?php echo urlencode($listing['id']); ?>&ref=saved" class="btn btn-primary">View Details</a>
                         </div>
                     </div>
                 </div>

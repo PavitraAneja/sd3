@@ -1,5 +1,6 @@
 <?php
 
+session_start();
 include('api/db.php');
 include('includes/functions.php');
 
@@ -9,10 +10,22 @@ error_reporting(E_ALL);
 
 // Get property ID from URL
 $property_id = isset($_GET['id']) ? $_GET['id'] : '';
+$ref = $_GET['ref'] ?? '';
 
 if (empty($property_id)) {
     header('Location: index.php');
     exit;
+}
+
+$is_saved = false;
+if (isset($_SESSION['user_id'])) {
+    $check_sql = "SELECT 1 FROM saved_listings WHERE user_id = ? AND listing_id = ?";
+    $check_stmt = $conn->prepare($check_sql);
+    $check_stmt->bind_param("is", $_SESSION['user_id'], $property_id);
+    $check_stmt->execute();
+    $check_stmt->store_result();
+    $is_saved = $check_stmt->num_rows > 0;
+    $check_stmt->close();
 }
 
 // Fetch property details
@@ -427,7 +440,11 @@ $conn->close();
         </div>
     </header>
     <div class="container">
-        <a href="index.php" class="back-btn">← Back to Properties</a>
+        <?php if ($ref === 'saved'): ?>
+            <a href="saved_list.php" class="back-btn">← Back to Saved Listings</a>
+        <?php else: ?>
+            <a href="index.php" class="back-btn">← Back to Properties</a>
+        <?php endif; ?>
         
         <div class="property-header">
             <h1 class="property-title"><?php echo htmlspecialchars($property['L_Address']); ?></h1>
@@ -435,6 +452,21 @@ $conn->close();
             <?php
             $address = urlencode($property['L_Address'] . ', ' . $property['L_City'] . ', ' . $property['L_State'] . ' ' . $property['L_Zip']);
             ?>
+            <?php if (isset($_SESSION['user_id'])): ?>
+                <div style="margin: 1rem 0;">
+                    <?php if ($is_saved): ?>
+                        <form method="POST" action="unsave_listing.php">
+                            <input type="hidden" name="listing_id" value="<?php echo htmlspecialchars($property_id); ?>">
+                            <button type="submit" class="back-btn">Remove From Saved Listings</button>
+                        </form>
+                    <?php else: ?>
+                        <form method="POST" action="save_listing.php">
+                            <input type="hidden" name="listing_id" value="<?php echo htmlspecialchars($property_id); ?>">
+                            <button type="submit" class="back-btn">Save This Listing</button>
+                        </form>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
             <a href="https://www.google.com/maps/search/?api=1&query=<?php echo $address; ?>" 
             target="_blank" class="back-btn" style="margin-top: 10px; display: inline-block;">
             🗺️ View on Google Maps
