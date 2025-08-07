@@ -1,37 +1,41 @@
 <?php
 session_start();
-?>
+include('api/db.php');
+header('Content-Type: application/json');
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Login</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-<div class="container mt-5" style="max-width: 500px;">
-    <h2 class="mb-4 text-center">Login</h2>
+$response = ["success" => false, "message" => "Login failed."];
 
-    <form action="login_action.php" method="POST">
-        <div class="mb-3">
-            <label>Email</label>
-            <input type="email" name="email" class="form-control" required />
-        </div>
-        <div class="mb-3">
-            <label>Password</label>
-            <input type="password" name="password" class="form-control" required />
-        </div>
-        <div class="d-grid gap-2">
-            <button type="submit" class="btn btn-success">Login</button>
-        </div>
-    </form>
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $email = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
 
-    <hr class="my-4">
+    if (!$email || !$password) {
+        $response['message'] = "Please fill in all fields.";
+    } else {
+        $query = "SELECT * FROM users WHERE email = ?";
+        $stmt = mysqli_prepare($conn, $query); 
+        if (!$stmt) {
+            $response['message'] = "Prepare failed: " . mysqli_error($conn);
+            echo json_encode($response); exit;
+        }
 
-    <div class="text-center">
-        <p>Don't have an account? Register today!</p>
-        <a href="register.php" class="btn btn-outline-primary">Create Account</a>
-    </div>
-</div>
-</body>
-</html>
+        mysqli_stmt_bind_param($stmt, 's', $email);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+
+        if ($row = mysqli_fetch_assoc($result)) {
+            if (password_verify($password, $row['password'])) {
+                $_SESSION['user_id'] = $row['id'];
+                $_SESSION['email'] = $row['email'];
+                $_SESSION['first_name'] = $row['first_name'];
+                $response = ["success" => true, "message" => "Login successful."];
+            } else {
+                $response['message'] = "Incorrect password.";
+            }
+        } else {
+            $response['message'] = "User not found.";
+        }
+    }
+}
+
+echo json_encode($response);

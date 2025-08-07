@@ -1,6 +1,6 @@
 <?php
 
- session_start();
+session_start();
 include('api/db.php'); 
 include('includes/functions.php');
 include('includes/pagination.php');
@@ -90,6 +90,18 @@ if ($city_result) {
     }
 }
 sort($cities);
+
+$saved_listing_ids = [];
+if (isset($_SESSION['user_id'])) {
+    $stmt = $conn->prepare("SELECT listing_id FROM saved_listings WHERE user_id = ?");
+    $stmt->bind_param("i", $_SESSION['user_id']);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    while ($row = $result->fetch_assoc()) {
+        $saved_listing_ids[] = $row['listing_id'];
+    }
+    $stmt->close();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -97,6 +109,7 @@ sort($cities);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>California Homes</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -109,6 +122,12 @@ sort($cities);
             line-height: 1.6;
             color: #333;
             background-color: #f8fafc;
+        }
+        
+        .heart-button:hover span {
+            opacity: 0.8;
+            transform: scale(1.05);
+            transition: all 0.2s ease-in-out;
         }
 
         .container {
@@ -1286,26 +1305,63 @@ sort($cities);
             </div>
                 <nav>
                     <ul>
-        <?php if (isset($_SESSION['user_id'])): ?>
-    <li style="color: white; margin-right: 10px;">
-        Welcome, <?php echo htmlspecialchars($_SESSION['email']); ?>
-    </li>
-    <li>
-        <a href="saved_list.php" class="btn btn-outline-light btn-sm">View Saved Listings</a>
-    </li>
-    <li>
-        <a href="logout.php" class="btn btn-danger btn-sm">Logout</a>
-    </li>
-        <?php else: ?>
-            <li>
-                <a href="login.php" class="btn btn-primary btn-sm">Login</a>
-            </li>
-        <?php endif; ?>
                         <li><a href="index.php">Homes for Sale</a></li>
                         <li><a href="openhouse.php">Open Houses</a></li>
                     </ul>
                 </nav>
             </div>
+        </div>
+        
+        <?php if (session_status() === PHP_SESSION_NONE) session_start(); ?>
+        
+        <div id="menuIcon" onclick="toggleDashboard()" style="position: fixed; top: 10px; right: 10px; cursor: pointer; z-index: 999; font-size: 24px;">
+            &#9776;
+        </div>
+        
+        
+        <div id="userDashboard" style="
+            position: fixed;
+            top: 0;
+            right: -320px;
+            width: 300px;
+            height: 100vh;
+            background-color: white;
+            border-left: 1px solid #ccc;
+            padding: 20px;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.2);
+            transition: right 0.3s ease;
+            z-index: 1000;
+        ">
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: black; font-weight: bold;">
+                    <?php
+                    if (isset($_SESSION['user_id'])) {
+                        echo "Welcome, " . htmlspecialchars($_SESSION['first_name']);
+                    } else {
+                        echo "Welcome, please sign in";
+                    }
+                    ?>
+                </h3>
+                <hr style="border: none; height: 2px; background-color: black; margin-top: 10px; margin-bottom: 20px;">
+            </div>
+           
+            <style>
+                .dashboard-link {
+                    text-decoration: none;
+                    color: black;
+                    font-size: 16px;
+                }
+                .dashboard-link:hover {
+                    color: #555;
+                }
+            </style>
+            <?php if (isset($_SESSION['user_id'])): ?>
+                <div style="margin-bottom: 20px;"><a class="dashboard-link" href="saved_list.php">Saved Listings</a></div>
+                <div><a class="dashboard-link" href="logout.php">Logout</a></div>
+            <?php else: ?>
+                <div style="margin-bottom: 20px;"> <a class="dashboard-link" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">Login</a> </div>
+                <div> <a class="dashboard-link" href="#" data-bs-toggle="modal" data-bs-target="#registerModal">Register</a> </div>
+            <?php endif; ?>
         </div>
     </header>
 
@@ -1484,6 +1540,16 @@ sort($cities);
                                 <?php echo htmlspecialchars($home['status']); ?>
                             </div>
                             <?php endif; ?>
+                            <?php if (isset($_SESSION['user_id'])): ?>
+                                <button class="heart-button"
+                                        data-listing-id="<?php echo htmlspecialchars($home['id']); ?>"
+                                        data-saved="<?php echo in_array($home['id'], $saved_listing_ids) ? '1' : '0'; ?>"
+                                        style="position: absolute; top: 5px; right: 100px; background: none; border: none; cursor: pointer; font-size: 2rem;">
+                                    <span style="color: <?php echo in_array($home['id'], $saved_listing_ids) ? 'red' : 'black'; ?>">
+                                        ❤
+                                    </span>
+                                </button>
+                            <?php endif; ?>
                         </div>
                     <div class="property-content">
                         <div class="property-price">$<?php echo $home['price']; ?></div>
@@ -1611,14 +1677,94 @@ sort($cities);
             </div>
         </div>
     </div>
+    
+    <!-- Registration Modal -->
+    <div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content p-4">
+          <div class="modal-header">
+            <h5 class="modal-title">Create Account</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="registerModalBody">
+            Loading form...
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content p-3">
+          <div class="modal-header">
+            <h5 class="modal-title" id="loginModalLabel">Login to Your Account</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <!-- Content from login_form.php will be loaded here -->
+            <div id="login-form-container">Loading...</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <script async
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB0szWlIt9Vj26cM300wTcWxwL0ABHZ9HE
 &loading=async&callback=initMap">
 </script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.heart-button').forEach(button => {
+        button.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const listingId = this.dataset.listingId;
+            const isSaved = this.dataset.saved === '1';
+            const heartSpan = this.querySelector('span');
+
+            const targetFile = isSaved ? 'unsave_listing.php' : 'save_listing.php';
+
+            fetch(targetFile, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'listing_id=' + encodeURIComponent(listingId)
+            })
+            .then(res => res.text())
+            .then(() => {
+                if (isSaved) {
+                    heartSpan.style.color = 'black';
+                    this.dataset.saved = '0';
+                } else {
+                    heartSpan.style.color = 'red';
+                    this.dataset.saved = '1';
+                }
+            })
+            .catch(err => console.error('Save toggle failed:', err));
+        });
+    });
+});
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
 
+<script>
+function toggleDashboard() {
+    const menu = document.getElementById('userDashboard');
+    const isOpen = menu.style.right === '0px';
+    menu.style.right = isOpen ? '-320px' : '0px';
+}
+
+document.addEventListener('click', function(event) {
+    const dashboard = document.getElementById('userDashboard');
+    const icon = document.getElementById('menuIcon');
+    if (!dashboard.contains(event.target) && !icon.contains(event.target)) {
+        dashboard.style.right = '-320px';
+    }
+});
+</script>
 
 <script>
 const listings = <?php echo json_encode($listings); ?>;
@@ -1974,5 +2120,84 @@ document.getElementById('comparisonModal').addEventListener('click', function(ev
     if (event.target === this) {
         hideComparison();
     }
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const regModal = document.getElementById('registerModal');
+  regModal.addEventListener('show.bs.modal', function () {
+    fetch('register_form.php')
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById('registerModalBody').innerHTML = html;
+
+        const form = document.getElementById('registerForm');
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          const formData = new FormData(form);
+
+          fetch('register.php', {
+            method: 'POST',
+            body: formData
+          })
+          .then(res => res.json())
+          .then(data => {
+            const msg = document.getElementById('reg-message');
+            if (data.success) {
+              msg.classList.remove('text-danger');
+              msg.classList.add('text-success');
+              msg.textContent = "Success! Reloading...";
+              setTimeout(() => location.reload(), 1000);
+            } else {
+              msg.textContent = data.message;
+            }
+          });
+        });
+      });
+  });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const loginModal = document.getElementById('loginModal');
+  loginModal.addEventListener('show.bs.modal', function () {
+    fetch('login_form.php')
+      .then(res => res.text())
+      .then(html => {
+        document.getElementById('login-form-container').innerHTML = html;
+        attachLoginSubmit();
+      });
+  });
+
+  function attachLoginSubmit() {
+    const form = document.getElementById('loginForm');
+    if (!form) return;
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const formData = new FormData(form);
+
+      fetch('login.php', {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        const msg = document.getElementById('login-message');
+        if (data.success) {
+          msg.classList.remove('text-danger');
+          msg.classList.add('text-success');
+          msg.textContent = "Login successful. Redirecting...";
+          setTimeout(() => window.location.href = "index.php", 1000);
+        } else {
+          msg.classList.remove('text-success');
+          msg.classList.add('text-danger');
+          msg.textContent = data.message;
+        }
+      });
+    });
+  }
 });
 </script>

@@ -1,11 +1,8 @@
 <?php
 
+session_start();
 include('api/db.php');
 include('includes/functions.php');
-
-// include ('includes/db_local.php');
-// include ('includes/functions.php');
-
 
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
@@ -13,22 +10,28 @@ error_reporting(E_ALL);
 
 // Get property ID from URL
 $property_id = isset($_GET['id']) ? $_GET['id'] : '';
+$ref = $_GET['ref'] ?? '';
 
 if (empty($property_id)) {
     header('Location: index.php');
     exit;
 }
 
-// Fetch property details
+$is_saved = false;
+if (isset($_SESSION['user_id'])) {
+    $check_sql = "SELECT 1 FROM saved_listings WHERE user_id = ? AND listing_id = ?";
+    $check_stmt = $conn->prepare($check_sql);
+    $check_stmt->bind_param("is", $_SESSION['user_id'], $property_id);
+    $check_stmt->execute();
+    $check_stmt->store_result();
+    $is_saved = $check_stmt->num_rows > 0;
+    $check_stmt->close();
+}
 
+// Fetch property details
 $sql = "SELECT * FROM rets_property_yu WHERE L_ListingID = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("s", $property_id);
-
-// $sql = 'SELECT * FROM rets_property WHERE L_ListingID = ?';
-// $stmt = $conn->prepare($sql);
-// $stmt->bind_param('s', $property_id);
-
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -43,46 +46,20 @@ $property = $result->fetch_assoc();
 $photos = [];
 if (!empty($property['L_Photos'])) {
     $photos = json_decode($property['L_Photos'], true);
-
-//     if (!is_array($photos)) $photos = [];
-// }
-
-// // Parse all data if available
-// $all_data = [];
-// if (!empty($property['L_alldata'])) {
-//     $all_data = json_decode($property['L_alldata'], true);
-//     if (!is_array($all_data)) $all_data = [];
-// }
-
-// // Get open houses for this property
-// $openhouse_sql = "SELECT * FROM rets_openhouse WHERE L_ListingID = ? ORDER BY OpenHouseDate ASC";
-// $openhouse_stmt = $conn->prepare($openhouse_sql);
-// $openhouse_stmt->bind_param("s", $property_id);
-// $openhouse_stmt->execute();
-// $openhouse_result = $openhouse_stmt->get_result();
-
-// $openhouses = [];
-// while ($row = $openhouse_result->fetch_assoc()) {
-//     $openhouses[] = $row;
-// }
-
-
-    if (!is_array($photos))
-        $photos = [];
+    if (!is_array($photos)) $photos = [];
 }
 
 // Parse all data if available
 $all_data = [];
 if (!empty($property['L_alldata'])) {
     $all_data = json_decode($property['L_alldata'], true);
-    if (!is_array($all_data))
-        $all_data = [];
+    if (!is_array($all_data)) $all_data = [];
 }
 
 // Get open houses for this property
-$openhouse_sql = 'SELECT * FROM rets_openhouse WHERE L_ListingID = ? ORDER BY OpenHouseDate ASC';
+$openhouse_sql = "SELECT * FROM rets_openhouse WHERE L_ListingID = ? ORDER BY OpenHouseDate ASC";
 $openhouse_stmt = $conn->prepare($openhouse_sql);
-$openhouse_stmt->bind_param('s', $property_id);
+$openhouse_stmt->bind_param("s", $property_id);
 $openhouse_stmt->execute();
 $openhouse_result = $openhouse_stmt->get_result();
 
@@ -93,6 +70,16 @@ while ($row = $openhouse_result->fetch_assoc()) {
 
 $stmt->close();
 $openhouse_stmt->close();
+$nearby_sql = "SELECT * FROM rets_property_yu WHERE L_City = ? AND L_ListingID != ? LIMIT 3";
+$nearby_stmt = $conn->prepare($nearby_sql);
+$nearby_stmt->bind_param("ss", $property['L_City'], $property['L_ListingID']);
+$nearby_stmt->execute();
+$nearby_result = $nearby_stmt->get_result();
+
+$nearby_listings = [];
+while ($row = $nearby_result->fetch_assoc()) {
+    $nearby_listings[] = $row;
+}
 $conn->close();
 ?>
 
@@ -109,12 +96,42 @@ $conn->close();
             padding: 0;
             box-sizing: border-box;
         }
+        
+        .property-tags {
+        margin-top: 20px;
+        margin-bottom: 25px;
+        }
+
+        .tag-badge {
+            display: inline-block;
+            background-color: #e2e8f0;
+            color: #333;
+            font-size: 0.85rem;
+            padding: 6px 12px;
+            border-radius: 20px;
+            margin: 4px 6px 0 0;
+            font-weight: 500;
+            white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+            transition: background-color 0.2s;
+        }
+
+        .tag-badge:hover {
+            background-color: #cbd5e1;
+        }
+        
+        
+        
+        
+        
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
             color: #333;
             background-color: #f8fafc;
         }
+        
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -247,6 +264,51 @@ $conn->close();
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+        .photo-carousel {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            margin: 0 auto 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .carousel-photo {
+            width: 100%;
+            height: 400px;
+            object-fit: cover;
+            border-radius: 8px;
+            user-select: none;
+        }
+
+        .carousel-btn {
+            position: absolute;
+            background: rgba(0,0,0,0.4);
+            border: none;
+            color: white;
+            font-size: 2.5rem;
+            cursor: pointer;
+            padding: 10px 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            border-radius: 50%;
+            user-select: none;
+            transition: background 0.3s;
+        }
+
+        #prev-btn {
+            left: 10px;
+        }
+
+        #next-btn {
+            right: 10px;
+        }
+
+        .carousel-btn:hover {
+            background: rgba(0,0,0,0.7);
+        }
+
         .photo-gallery {
             margin-bottom: 30px;
         }
@@ -349,36 +411,6 @@ $conn->close();
             background: #f8d7da;
             color: #721c24;
         }
-
-        .property-header-row {
-            display: flex;
-            align-items: stretch;
-            gap: 2rem;
-            margin-bottom: 20px;
-        }
-        .property-header {
-            flex: 1 1 0;
-        }
-        #map {
-            min-width: 300px;
-            max-width: 600px;
-            width: 100%;
-            height: 200px;
-            border-radius: 12px;
-        }
-        @media (max-width: 900px) {
-            .property-header-row {
-                flex-direction: column;
-                gap: 1rem;
-            }
-            #map {
-                width: 100%;
-                min-width: 0;
-                height: 200px;
-                margin-left: 0;
-            }
-        }
-      
         @media (max-width: 768px) {
             .property-content {
                 grid-template-columns: 1fr;
@@ -389,7 +421,6 @@ $conn->close();
         }
     </style>
 </head>
-
 <body>
     <header>
         <div class="container">
@@ -401,7 +432,6 @@ $conn->close();
                 </div>
                 <nav>
                     <ul>
-
                     <li><a href="index.php">Homes for Sale</a></li>
                     <li><a href="openhouse.php">Open Houses</a></li>
                     </ul>
@@ -410,55 +440,70 @@ $conn->close();
         </div>
     </header>
     <div class="container">
-        <a href="index.php" class="back-btn">← Back to Properties</a>
+        <?php if ($ref === 'saved'): ?>
+            <a href="saved_list.php" class="back-btn">← Back to Saved Listings</a>
+        <?php else: ?>
+            <a href="index.php" class="back-btn">← Back to Properties</a>
+        <?php endif; ?>
         
-        <div class="property-header-row">
-            <div class="property-header">
-                <h1 class="property-title"><?php echo htmlspecialchars($property['L_Address']); ?></h1>
-                <div class="property-price">$<?php echo number_format($property['L_SystemPrice']); ?></div>
-                <div class="property-address">
-                    <?php echo htmlspecialchars($property['L_Address']); ?>, 
-                    <?php echo htmlspecialchars($property['L_City']); ?>, 
-                    <?php echo htmlspecialchars($property['L_State']); ?> 
-                    <?php echo htmlspecialchars($property['L_Zip']); ?>
-                </div>
-                <?php if (!empty($property['L_Status'])): ?>
-                <span class="status-badge status-<?php echo strtolower($property['L_Status']); ?>">
-                    <?php echo htmlspecialchars($property['L_Status']); ?>
-                </span>
-                <?php endif; ?>
-            </div>
+        <div class="property-header">
+            <h1 class="property-title"><?php echo htmlspecialchars($property['L_Address']); ?></h1>
+            <div class="property-price">$<?php echo number_format($property['L_SystemPrice']); ?></div>
             <?php
-            // Use the correct keys for your lat/lng fields!
-            $lat = !empty($property['lat']) ? $property['lat'] : (!empty($property['LMD_MP_Latitude']) ? $property['LMD_MP_Latitude'] : null);
-            $lng = !empty($property['lng']) ? $property['lng'] : (!empty($property['LMD_MP_Longitude']) ? $property['LMD_MP_Longitude'] : null);
+            $address = urlencode($property['L_Address'] . ', ' . $property['L_City'] . ', ' . $property['L_State'] . ' ' . $property['L_Zip']);
             ?>
-            <?php if (!empty($lat) && !empty($lng)): ?>
-                <div id="map"></div>
+            <?php if (isset($_SESSION['user_id'])): ?>
+                <div style="margin: 1rem 0;">
+                    <?php if ($is_saved): ?>
+                        <form method="POST" action="unsave_listing.php">
+                            <input type="hidden" name="listing_id" value="<?php echo htmlspecialchars($property_id); ?>">
+                            <button type="submit" class="back-btn">Remove From Saved Listings</button>
+                        </form>
+                    <?php else: ?>
+                        <form method="POST" action="save_listing.php">
+                            <input type="hidden" name="listing_id" value="<?php echo htmlspecialchars($property_id); ?>">
+                            <button type="submit" class="back-btn">Save This Listing</button>
+                        </form>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+            <a href="https://www.google.com/maps/search/?api=1&query=<?php echo $address; ?>" 
+            target="_blank" class="back-btn" style="margin-top: 10px; display: inline-block;">
+            🗺️ View on Google Maps
+            </a>
+            <?php
+            
+// Simulate having 30 tags
+$tags = [
+    "Newly Renovated", "Pet Friendly", "Granite Countertops", "Hardwood Floors", "Walk-In Closet",
+    "Swimming Pool", "Energy Efficient", "Near Schools", "Modern Design", "Gated Community",
+    "Finished Basement", "Stainless Steel Appliances", "Fireplace", "Rooftop Deck", "Furnished",
+    "Corner Lot", "Skylights", "Custom Cabinets", "Solar Panels", "Large Backyard",
+    "City View", "Cul-de-sac", "Fenced Yard", "Smart Home", "Home Office",
+    "Two-Story", "Open Floor Plan", "Vaulted Ceilings", "Wine Cellar", "Marble Floors"
+];
+
+// Only show max 10 tags
+$tags_to_display = array_slice($tags, 0, 10);
+?>
+
+            <div class="property-tags">
+            <?php foreach ($tags_to_display as $tag): ?>
+                <span class="tag-badge"><?php echo htmlspecialchars($tag); ?></span>
+            <?php endforeach; ?>
+            </div>
+            <div class="property-address">
+                <?php echo htmlspecialchars($property['L_Address']); ?>, 
+                <?php echo htmlspecialchars($property['L_City']); ?>, 
+                <?php echo htmlspecialchars($property['L_State']); ?> 
+                <?php echo htmlspecialchars($property['L_Zip']); ?>
+            </div>
+            <?php if (!empty($property['L_Status'])): ?>
+            <span class="status-badge status-<?php echo strtolower($property['L_Status']); ?>">
+                <?php echo htmlspecialchars($property['L_Status']); ?>
+            </span>
             <?php endif; ?>
         </div>
-        <?php if (!empty($lat) && !empty($lng)): ?>
-        <script>
-            function initMap() {
-                const center = {
-                    lat: parseFloat('<?php echo $lat; ?>'),
-                    lng: parseFloat('<?php echo $lng; ?>')
-                };
-                const map = new google.maps.Map(document.getElementById('map'), {
-                    zoom: 14,
-                    center: center
-                });
-                new google.maps.Marker({
-                    position: center,
-                    map: map,
-                    title: "<?php echo htmlspecialchars($property['L_Address']); ?>"
-                });
-            }
-        </script>
-        <script async
-            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB0szWlIt9Vj26cM300wTcWxwL0ABHZ9HE&callback=initMap">
-        </script>
-        <?php endif; ?>
 
         <div class="property-stats">
             <div class="stat-item">
@@ -482,16 +527,10 @@ $conn->close();
         <div class="property-content">
             <div class="main-content">
                 <?php if (!empty($photos)): ?>
-                <div class="photo-gallery">
-                    <img src="<?php echo htmlspecialchars($photos[0]); ?>" alt="Main Photo" class="main-photo" id="main-photo">
-                    <?php if (count($photos) > 1): ?>
-                    <div class="photo-thumbnails">
-                        <?php foreach ($photos as $index => $photo): ?>
-                        <img src="<?php echo htmlspecialchars($photo); ?>" alt="Photo <?php echo $index + 1; ?>" 
-                             class="photo-thumbnail" onclick="changeMainPhoto('<?php echo htmlspecialchars($photo); ?>')">
-                        <?php endforeach; ?>
-                    </div>
-                    <?php endif; ?>
+                <div class="photo-carousel">
+                    <button class="carousel-btn" id="prev-btn" aria-label="Previous Photo">‹</button>
+                    <img src="<?php echo htmlspecialchars($photos[0]); ?>" alt="Property Photo" class="carousel-photo" id="carousel-photo" />
+                    <button class="carousel-btn" id="next-btn" aria-label="Next Photo">›</button>
                 </div>
                 <?php endif; ?>
 
@@ -517,8 +556,8 @@ $conn->close();
                         <span class="detail-label">Lot Size:</span>
                         <span class="detail-value"><?php echo htmlspecialchars($property['L_Keyword7'] ?? 'N/A'); ?></span>
                     </div>
+                
                 </div>
-
 
                 <?php if (!empty($property['L_Remarks'])): ?>
                 <div class="property-description">
@@ -533,19 +572,38 @@ $conn->close();
             </div>
 
             <div class="sidebar">
-                <div class="agent-card">
-                    <h3 class="section-title">Listing Agent</h3>
-                    <?php if (!empty($property['LA1_UserFirstName']) || !empty($property['LA1_UserLastName'])): ?>
-                    <div class="agent-name">
-                        <?php echo htmlspecialchars($property['LA1_UserFirstName'] . ' ' . $property['LA1_UserLastName']); ?>
-                    </div>
-                    <?php endif; ?>
-                    <?php if (!empty($property['LO1_OrganizationName'])): ?>
-                    <div class="agent-office">
-                        <?php echo htmlspecialchars($property['LO1_OrganizationName']); ?>
-                    </div>
-                    <?php endif; ?>
-                </div>
+    <div class="agent-card">
+        <h3 class="section-title">Listing Agent</h3>
+        <?php if (!empty($property['LA1_UserFirstName']) || !empty($property['LA1_UserLastName'])): ?>
+        <div class="agent-name">
+            <?php echo htmlspecialchars($property['LA1_UserFirstName'] . ' ' . $property['LA1_UserLastName']); ?>
+        </div>
+        <?php endif; ?>
+        <?php if (!empty($property['LO1_OrganizationName'])): ?>
+        <div class="agent-office">
+            <?php echo htmlspecialchars($property['LO1_OrganizationName']); ?>
+        </div>
+        <?php endif; ?>
+    </div>
+
+    <?php if (!empty($nearby_listings)): ?>
+    <div class="nearby-listings" style="margin-top: 30px;">
+        <h3 class="section-title" style="margin-bottom: 15px;">Nearby Listings in <?php echo htmlspecialchars($property['L_City']); ?></h3>
+        <?php foreach ($nearby_listings as $listing): ?>
+        <div class="nearby-item" style="background: #f1f5f9; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <a href="property.php?id=<?php echo urlencode($listing['L_ListingID']); ?>" 
+               style="font-weight: bold; font-size: 1rem; color: #333; text-decoration: none;">
+               <?php echo htmlspecialchars($listing['L_Address']); ?>
+            </a>
+            <div style="font-size: 0.9rem; color: #555; margin-top: 5px;">
+                $<?php echo number_format($listing['L_SystemPrice']); ?> — 
+                <?php echo $listing['L_Keyword2'] ?? '-' ?> Beds • 
+                <?php echo $listing['LM_Dec_3'] ?? '-' ?> Baths
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
 
                 <?php if (!empty($openhouses)): ?>
                 <div class="openhouses">
@@ -556,10 +614,10 @@ $conn->close();
                             <?php echo date('l, F j, Y', strtotime($openhouse['OpenHouseDate'])); ?>
                         </div>
                         <div class="openhouse-time">
-                            <?php
+                            <?php 
                             if ($openhouse['OH_StartTime'] && $openhouse['OH_EndTime']) {
-                                echo date('g:i A', strtotime($openhouse['OH_StartTime'])) . ' - '
-                                    . date('g:i A', strtotime($openhouse['OH_EndTime']));
+                                echo date('g:i A', strtotime($openhouse['OH_StartTime'])) . ' - ' . 
+                                     date('g:i A', strtotime($openhouse['OH_EndTime']));
                             }
                             ?>
                         </div>
@@ -587,5 +645,50 @@ $conn->close();
         </div>
     </div>
 
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <?php if (!empty($photos) && count($photos) > 1): ?>
+    <script>
+        const photos = <?php echo json_encode($photos); ?>;
+        let currentIndex = 0;
+
+        const carouselPhoto = document.getElementById('carousel-photo');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+
+        function showPhoto(index) {
+            currentIndex = (index + photos.length) % photos.length;
+            carouselPhoto.src = photos[currentIndex];
+        }
+
+        prevBtn.addEventListener('click', () => {
+            showPhoto(currentIndex - 1);
+        });
+
+        nextBtn.addEventListener('click', () => {
+            showPhoto(currentIndex + 1);
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') showPhoto(currentIndex - 1);
+            else if (e.key === 'ArrowRight') showPhoto(currentIndex + 1);
+        });
+    </script>
+    <?php endif; ?>
+
+    <?php if (!empty($property['LMD_MP_Latitude']) && !empty($property['LMD_MP_Longitude'])): ?>
+    <script>
+        const map = L.map('property-map').setView([<?php echo $property['LMD_MP_Latitude']; ?>, <?php echo $property['LMD_MP_Longitude']; ?>], 15);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        L.marker([<?php echo $property['LMD_MP_Latitude']; ?>, <?php echo $property['LMD_MP_Longitude']; ?>]).addTo(map)
+            .bindPopup('<?php echo addslashes(htmlspecialchars($property['L_Address'])); ?>')
+            .openPopup();
+    </script>
+    <?php endif; ?>
 </body>
-</html> 
+</html>
