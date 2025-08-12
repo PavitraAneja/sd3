@@ -1769,6 +1769,13 @@ document.addEventListener('click', function(event) {
 <script>
 const listings = <?php echo json_encode($listings); ?>;
 
+// Global variables for map
+let map = null;
+let isMapVisible = false;
+let currentLayout ='card'
+let sharedInfoWindow = null;
+let selectedMarker = null;
+
 function initMap() {
     if (!listings.length) return;
 
@@ -1790,6 +1797,8 @@ function initMap() {
         ]
     });
 
+    sharedInfoWindow = new google.maps.InfoWindow();
+
     // Create bounds to fit all markers
     const bounds = new google.maps.LatLngBounds();
     let markersAdded = 0;
@@ -1808,8 +1817,16 @@ function initMap() {
             bounds.extend(position);
             markersAdded++;
 
-            const infoWindow = new google.maps.InfoWindow({
-                content: `
+            marker.addListener('click', function () {
+                if (selectedMarker && selectedMarker !== marker) {
+                    selectedMarker.setAnimation(null);
+                }
+                selectedMarker = marker;
+                marker.setAnimation(google.maps.Animation.BOUNCE);
+                setTimeout(() => marker.setanimation(null), 700);
+            
+
+                const content = `
                     <div style="max-width: 250px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
                         <div style="margin-bottom: 10px;">
                             <img src="${home.photo}" alt="Property Photo" style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px;">
@@ -1827,11 +1844,14 @@ function initMap() {
                             <a href="property.php?id=${home.id}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.8em; display: inline-block;">View Details</a>
                         </div>
                     </div>
-                `
-            });
+                `;
+            
+                sharedInfoWindow.setContent(content);
+                sharedInfoWindow.open(map, marker);
 
-            marker.addListener('click', function() {
-                infoWindow.open(map, marker);
+            // marker.addListener('click', function() {
+            //     infoWindow.open(map, marker);
+            // });
             });
         }
     });
@@ -1846,6 +1866,11 @@ function initMap() {
             google.maps.event.removeListener(listener);
         });
     }
+
+    // Close the InfoWindow when clicking on the map background
+    map.addListener('click', () => {
+        if (sharedInfoWindow) sharedInfoWindow.close();
+    });
 }
 
 // Initialize map after page load - but don't show it initially
