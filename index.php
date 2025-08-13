@@ -1823,7 +1823,7 @@ function initMap() {
                 }
                 selectedMarker = marker;
                 marker.setAnimation(google.maps.Animation.BOUNCE);
-                setTimeout(() => marker.setanimation(null), 700);
+                setTimeout(() => marker.setAnimation(null), 700);
             
 
                 const content = `
@@ -1888,10 +1888,6 @@ function updateSort(sortValue) {
     url.searchParams.set('page', '1'); // Reset to first page when sorting
     window.location.href = url.toString();
 }
-
-let map = null;
-let isMapVisible = false;
-let currentLayout = 'card'; // Default layout
 
 function toggleLayoutDropdown() {
     const dropdown = document.getElementById('layoutDropdown');
