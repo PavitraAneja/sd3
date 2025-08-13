@@ -1532,7 +1532,7 @@ if (isset($_SESSION['user_id'])) {
                 <?php foreach ($listings as $home): ?>
                 <div class="property-card" data-property-id="<?php echo htmlspecialchars($home['id']); ?>">
                     <input type="checkbox" class="property-checkbox" data-property-id="<?php echo htmlspecialchars($home['id']); ?>" onclick="event.stopPropagation(); toggleComparison(this);">
-                    <a href="property.php?id=<?php echo htmlspecialchars($home['id']); ?>" style="text-decoration: none; color: inherit; display: block;">
+                    <a href="property.php?id=<?php echo htmlspecialchars($home['id']); ?>" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: inherit; display: block;">
                         <div class="property-image">
                             <img src="<?php echo htmlspecialchars($home['photo']); ?>" alt="California Home Photo">
                             <?php if (!empty($home['status'])): ?>
@@ -1635,7 +1635,7 @@ if (isset($_SESSION['user_id'])) {
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <a href="property.php?id=<?php echo htmlspecialchars($home['id']); ?>" class="table-view-btn">
+                                <a href="property.php?id=<?php echo htmlspecialchars($home['id']); ?>" target="_blank" rel="noopener noreferrer" class="table-view-btn">
                                     View Details
                                 </a>
                             </td>
@@ -1841,7 +1841,7 @@ function initMap() {
                             🛏️ ${home.beds} beds • 🚿 ${home.baths} baths • 📐 ${home.sqft} sqft
                         </div>
                         <div style="text-align: center;">
-                            <a href="property.php?id=${home.id}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.8em; display: inline-block;">View Details</a>
+                            <a href="property.php?id=${home.id}" target="_blank" rel="noopener noreferrer" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.8em; display: inline-block;">View Details</a>
                         </div>
                     </div>
                 `;
@@ -2110,7 +2110,7 @@ function showComparison() {
                     ` : ''}
                 </div>
                 
-                <a href="property.php?id=${property.id}" class="comparison-view-btn">View Full Details</a>
+                <a href="property.php?id=${property.id}" target="_blank" rel="noopener noreferrer" class="comparison-view-btn">View Full Details</a>
             </div>
         </div>
     `).join('');
