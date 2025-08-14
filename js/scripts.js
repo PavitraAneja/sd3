@@ -13,4 +13,17 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         });
     }
+
+    // Clear search functionality
+    const clearButton = document.getElementById('clearSearch');
+    if (clearButton) {
+        clearButton.addEventListener('click', function() {
+            // Get current URL without address parameter
+            const url = new URL(window.location);
+            url.searchParams.delete('address');
+            
+            // Redirect to show all listings
+            window.location.href = url.toString();
+        });
+    }
 });
