@@ -1825,6 +1825,31 @@ if (isset($_SESSION['user_id'])) {
       </div>
     </div>
 
+     <!-- Forgot Password Modal -->
+    <div class="modal fade" id="forgotPasswordModal" tabindex="-1" aria-labelledby="forgotPasswordModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content p-3">
+          <div class="modal-header">
+            <h5 class="modal-title" id="forgotPasswordModalLabel">Reset Password</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form id="forgotPasswordForm">
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="resetEmail" class="form-label">Enter your email address</label>
+                <input type="email" class="form-control" id="resetEmail" name="email" required>
+              </div>
+              <div id="resetFeedback" class="mt-2 text-center"></div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+              <button type="submit" class="btn btn-primary">Send Reset Link</button>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <script async
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB0szWlIt9Vj26cM300wTcWxwL0ABHZ9HE
 &loading=async&callback=initMap">
@@ -2381,7 +2406,43 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     });
   }
+});
+</script>
 
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const form = document.getElementById("forgotPasswordForm");
+  const feedback = document.getElementById("resetFeedback");
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault(); 
+    feedback.innerText = "Sending...";
+
+    const formData = new FormData(form);
+
+    fetch("forgot_password.php", {
+      method: "POST",
+      body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        feedback.className = "text-success text-center mt-2";
+        feedback.innerText = "Reset link sent successfully.";
+      } else {
+        feedback.className = "text-danger text-center mt-2";
+        feedback.innerText = data.message || "Failed to send reset link.";
+      }
+    })
+    .catch(() => {
+      feedback.className = "text-danger text-center mt-2";
+      feedback.innerText = "Something went wrong.";
+    });
+  });
+});
+</script>
+
+<script>
   // Clear search functionality
   const clearButton = document.getElementById('clearSearch');
   if (clearButton) {
@@ -2632,5 +2693,5 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Initialize search synchronization when DOM is loaded
   initSearchSync();
-});
 </script>
+
