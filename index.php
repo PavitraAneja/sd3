@@ -20,14 +20,29 @@ $offset = ($page - 1) * $limit;
 
 $filter_sql = build_filter_query($_GET);
 
+// Build ORDER BY clause based on sort parameter
+$sort = isset($_GET['sort']) ? $_GET['sort'] : 'newest';
+$order_by = '';
+switch ($sort) {
+    case 'price_low':
+        $order_by = 'ORDER BY L_SystemPrice ASC, created_at DESC';
+        break;
+    case 'price_high':
+        $order_by = 'ORDER BY L_SystemPrice DESC, created_at DESC';
+        break;
+    case 'newest':
+    default:
+        $order_by = 'ORDER BY created_at DESC';
+        break;
+}
+
 $count_sql = "SELECT COUNT(*) as total FROM rets_property_yu $filter_sql";
 $count_result = $conn->query($count_sql);
 $total = $count_result ? $count_result->fetch_assoc()['total'] : 0;
 
-
 $sql = "SELECT L_ListingID, L_Address, L_City, L_State, L_Zip, L_SystemPrice, L_Keyword2, LM_Dec_3, LM_Int2_3, L_Photos, L_Remarks, LMD_MP_Latitude as Latitude, LMD_MP_Longitude as Longitude, 
         LA1_UserFirstName, LA1_UserLastName, LO1_OrganizationName, L_Status, created_at
-        FROM rets_property_yu $filter_sql ORDER BY created_at DESC LIMIT $limit OFFSET $offset";
+        FROM rets_property_yu $filter_sql $order_by LIMIT $limit OFFSET $offset";
 
 // Get the latest created_at from the entire table
 $latest_created_at = null;
@@ -1425,7 +1440,7 @@ if (isset($_SESSION['user_id'])) {
             <p>Discover beautiful homes for sale across California's most desirable neighborhoods and communities.</p>
             
             <div class="hero-search">
-                <form method="GET" class="hero-search-form" action="index.php">
+                <form method="GET" class="hero-search-form" id="heroSearchForm" action="index.php">
                     <!-- Preserve existing filters -->
                     <?php if (isset($_GET['city']) && $_GET['city']): ?>
                         <input type="hidden" name="city" value="<?php echo htmlspecialchars($_GET['city']); ?>">
@@ -1450,7 +1465,7 @@ if (isset($_SESSION['user_id'])) {
                         <input 
                             type="text" 
                             name="address" 
-                            id="searchInput"
+                            id="heroSearchInput"
                             class="hero-search-input" 
                             placeholder="Enter a city or ZIP code..."
                             value="<?php echo isset($_GET['address']) ? htmlspecialchars($_GET['address']) : ''; ?>"
@@ -1458,9 +1473,9 @@ if (isset($_SESSION['user_id'])) {
                             autocomplete="off"
                         >
                         <?php if (isset($_GET['address']) && !empty($_GET['address'])): ?>
-                        <button type="button" id="clearSearch" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #666; font-size: 18px;">&times;</button>
+                        <button type="button" id="clearHeroSearch" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #666; font-size: 18px;">&times;</button>
                         <?php endif; ?>
-                        <div id="searchSuggestions" class="search-suggestions"></div>
+                        <div id="heroSearchSuggestions" class="search-suggestions"></div>
                     </div>
                     <button type="submit" class="hero-search-btn">
                         <svg class="hero-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1475,14 +1490,17 @@ if (isset($_SESSION['user_id'])) {
 
     <section class="search-section">
         <div class="container">
-            <form method="GET" class="search-form">
+            <form method="GET" class="search-form" id="searchForm">
+                <!-- Hidden address field to maintain synchronization -->
+                <input type="hidden" id="address" name="address" value="<?php echo isset($_GET['address']) ? htmlspecialchars($_GET['address']) : ''; ?>">
                 <div class="form-group">
                     <label for="min">Min Price</label>
                     <select id="min" name="min">
+                        <option value="">Any</option>
                         <?php
                         $min_price_options = [200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000];
                         foreach ($min_price_options as $price) {
-                            $label = $price == 0 ? '$0' : ('$' . number_format($price / 1000, 0) . 'k');
+                            $label = '$' . number_format($price / 1000, 0) . 'k';
                             echo '<option value="' . $price . '"' . (isset($_GET['min']) && $_GET['min'] == $price ? ' selected' : '') . '>' . $label . '</option>';
                         }
                         ?>
@@ -1527,6 +1545,9 @@ if (isset($_SESSION['user_id'])) {
                         ?>
                     </select>                </div>
 
+                <!-- Include sort field for filtering -->
+                <input type="hidden" id="sortField" name="sort" value="<?php echo isset($_GET['sort']) ? htmlspecialchars($_GET['sort']) : ''; ?>">
+
                 <div class="form-group buttons">
                     <button type="submit" class="search-btn">Apply</button>
                     <button type="button" class="search-btn" style="background: #e2e8f0; color: #333;" onclick="clearAllFilters()">Clear</button>
@@ -1540,9 +1561,50 @@ if (isset($_SESSION['user_id'])) {
             <div class="results-header">
                 <div class="results-count">
                     Showing <?php echo count($listings); ?> of <?php echo number_format($total); ?> properties
-                    <?php if (!empty($_GET['address'])): ?>
-                        <span style="color: #667eea; font-weight: 500;"> for "<?php echo htmlspecialchars($_GET['address']); ?>"</span>
-                    <?php endif; ?>
+                    <?php 
+                    $active_filters = [];
+                    
+                    // Address filter
+                    if (!empty($_GET['address'])) {
+                        $active_filters[] = 'in "' . htmlspecialchars($_GET['address']) . '"';
+                    }
+                    
+                    // Price filters
+                    if (!empty($_GET['min']) || !empty($_GET['max'])) {
+                        $price_range = '';
+                        if (!empty($_GET['min'])) {
+                            $price_range .= '$' . number_format($_GET['min'] / 1000, 0) . 'k';
+                        }
+                        if (!empty($_GET['min']) && !empty($_GET['max'])) {
+                            $price_range .= ' - ';
+                        } else if (empty($_GET['min'])) {
+                            $price_range .= 'up to ';
+                        }
+                        if (!empty($_GET['max'])) {
+                            $price_range .= '$' . number_format($_GET['max'] / 1000, 0) . 'k';
+                        } else if (!empty($_GET['min'])) {
+                            $price_range .= '+';
+                        }
+                        $active_filters[] = $price_range . ' price range';
+                    }
+                    
+                    // Beds filter
+                    if (!empty($_GET['beds'])) {
+                        $beds_text = $_GET['beds'] === '6+' ? '6+ beds' : $_GET['beds'] . '+ beds';
+                        $active_filters[] = $beds_text;
+                    }
+                    
+                    // Baths filter
+                    if (!empty($_GET['baths'])) {
+                        $baths_text = $_GET['baths'] === '6+' ? '6+ baths' : $_GET['baths'] . '+ baths';
+                        $active_filters[] = $baths_text;
+                    }
+                    
+                    // Display active filters
+                    if (!empty($active_filters)) {
+                        echo '<span style="color: #667eea; font-weight: 500;"> with ' . implode(', ', $active_filters) . '</span>';
+                    }
+                    ?>
                 </div>
                 <div class="header-controls">
                     <div class="sort-section">
@@ -1933,14 +1995,59 @@ window.addEventListener('DOMContentLoaded', function() {
 });
 
 function clearAllFilters() {
+    // Clear all form inputs first
+    const searchForm = document.getElementById('searchForm');
+    if (searchForm) {
+        const inputs = searchForm.querySelectorAll('input, select');
+        inputs.forEach(input => {
+            if (input.type === 'hidden' && input.name === 'sort') {
+                input.value = 'newest'; // Reset to default sort
+            } else if (input.type !== 'hidden') {
+                input.value = '';
+            }
+        });
+    }
+    
+    // Clear hero search input
+    const heroInput = document.getElementById('heroSearchInput');
+    if (heroInput) heroInput.value = '';
+    
+    // Clear sort dropdown
+    const sortDropdown = document.getElementById('sort-quick');
+    if (sortDropdown) sortDropdown.value = 'newest';
+    
+    // Redirect to clean page
     window.location.href = 'index.php';
 }
 
 function updateSort(sortValue) {
-    const url = new URL(window.location);
-    url.searchParams.set('sort', sortValue);
-    url.searchParams.set('page', '1'); // Reset to first page when sorting
-    window.location.href = url.toString();
+    // Update the sort field in search form
+    const sortField = document.getElementById('sortField');
+    if (sortField) {
+        sortField.value = sortValue;
+    }
+    
+    // Submit the main search form to apply sort with current filters
+    const searchForm = document.getElementById('searchForm');
+    if (searchForm) {
+        // Set page to 1 when sorting
+        let pageInput = searchForm.querySelector('input[name="page"]');
+        if (!pageInput) {
+            pageInput = document.createElement('input');
+            pageInput.type = 'hidden';
+            pageInput.name = 'page';
+            searchForm.appendChild(pageInput);
+        }
+        pageInput.value = '1';
+        
+        searchForm.submit();
+    } else {
+        // Fallback to original behavior
+        const url = new URL(window.location);
+        url.searchParams.set('sort', sortValue);
+        url.searchParams.set('page', '1');
+        window.location.href = url.toString();
+    }
 }
 
 function toggleLayoutDropdown() {
@@ -2288,64 +2395,185 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Search autocomplete functionality
+  // Search State Management - Synchronize all search components
   const cities = <?php echo json_encode($cities); ?>;
-  const searchInput = document.getElementById('searchInput');
-  const searchSuggestions = document.getElementById('searchSuggestions');
+  
+  // Search inputs and suggestion containers
+  const heroSearchInput = document.getElementById('heroSearchInput');
+  const heroSearchSuggestions = document.getElementById('heroSearchSuggestions');
+  const searchFormInput = document.getElementById('address');
+  const searchInput = document.getElementById('searchInput'); // Legacy support
+  const searchSuggestions = document.getElementById('searchSuggestions'); // Legacy support
+  
   let currentHighlight = -1;
+  let currentSuggestionsContainer = null;
 
-  if (searchInput && searchSuggestions) {
-    searchInput.addEventListener('input', function() {
-      const value = this.value.trim().toLowerCase();
+  // Initialize search synchronization
+  function initSearchSync() {
+    // Synchronize hero search with main search form
+    if (heroSearchInput && searchFormInput) {
+      heroSearchInput.addEventListener('input', function() {
+        searchFormInput.value = this.value;
+        handleSearchInput(this, heroSearchSuggestions);
+      });
       
-      if (value.length === 0) {
-        hideSuggestions();
-        return;
-      }
+      searchFormInput.addEventListener('input', function() {
+        heroSearchInput.value = this.value;
+        handleSearchInput(this, null); // No suggestions for main form input
+      });
+    }
 
-      const matches = cities.filter(city => 
-        city.toLowerCase().includes(value)
-      ).slice(0, 8); // Limit to 8 suggestions
+    // Legacy support for existing searchInput
+    if (searchInput && heroSearchInput) {
+      searchInput.addEventListener('input', function() {
+        heroSearchInput.value = this.value;
+        if (searchFormInput) searchFormInput.value = this.value;
+        handleSearchInput(this, searchSuggestions);
+      });
+    }
 
-      if (matches.length > 0) {
-        showSuggestions(matches, value);
-      } else {
-        hideSuggestions();
-      }
-    });
+    // Setup autocomplete for all search inputs
+    setupAutocomplete();
+    
+    // Setup clear functionality
+    setupClearButtons();
+    
+    // Setup form submission sync
+    setupFormSync();
+  }
 
-    searchInput.addEventListener('keydown', function(e) {
-      const suggestions = searchSuggestions.querySelectorAll('.search-suggestion-item');
+  function handleSearchInput(inputElement, suggestionsContainer) {
+    const value = inputElement.value.trim().toLowerCase();
+    
+    if (value.length === 0) {
+      hideSuggestions(suggestionsContainer);
+      return;
+    }
+
+    const matches = cities.filter(city => 
+      city.toLowerCase().includes(value)
+    ).slice(0, 8); // Limit to 8 suggestions
+
+    if (matches.length > 0 && suggestionsContainer) {
+      showSuggestions(matches, value, suggestionsContainer);
+    } else {
+      hideSuggestions(suggestionsContainer);
+    }
+  }
+
+  function setupAutocomplete() {
+    const inputs = [heroSearchInput, searchFormInput, searchInput].filter(input => input);
+    
+    inputs.forEach(input => {
+      const suggestionsContainer = input.id === 'heroSearchInput' ? heroSearchSuggestions : 
+                                   input.id === 'searchInput' ? searchSuggestions : null;
       
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        currentHighlight = Math.min(currentHighlight + 1, suggestions.length - 1);
-        updateHighlight(suggestions);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        currentHighlight = Math.max(currentHighlight - 1, -1);
-        updateHighlight(suggestions);
-      } else if (e.key === 'Enter') {
-        if (currentHighlight >= 0 && suggestions[currentHighlight]) {
+      if (!suggestionsContainer) return;
+      
+      input.addEventListener('keydown', function(e) {
+        const suggestions = suggestionsContainer.querySelectorAll('.search-suggestion-item');
+        
+        if (e.key === 'ArrowDown') {
           e.preventDefault();
-          selectSuggestion(suggestions[currentHighlight].textContent);
+          currentHighlight = Math.min(currentHighlight + 1, suggestions.length - 1);
+          updateHighlight(suggestions);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          currentHighlight = Math.max(currentHighlight - 1, -1);
+          updateHighlight(suggestions);
+        } else if (e.key === 'Enter') {
+          if (currentHighlight >= 0 && suggestions[currentHighlight]) {
+            e.preventDefault();
+            selectSuggestion(suggestions[currentHighlight].textContent);
+          }
+        } else if (e.key === 'Escape') {
+          hideSuggestions(suggestionsContainer);
         }
-      } else if (e.key === 'Escape') {
-        hideSuggestions();
-      }
+      });
     });
 
     // Hide suggestions when clicking outside
     document.addEventListener('click', function(e) {
-      if (!searchInput.contains(e.target) && !searchSuggestions.contains(e.target)) {
-        hideSuggestions();
+      [heroSearchSuggestions, searchSuggestions].forEach(container => {
+        if (container) {
+          const relatedInput = container.id === 'heroSearchSuggestions' ? heroSearchInput : searchInput;
+          if (relatedInput && !relatedInput.contains(e.target) && !container.contains(e.target)) {
+            hideSuggestions(container);
+          }
+        }
+      });
+    });
+  }
+
+  function setupClearButtons() {
+    const clearHeroBtn = document.getElementById('clearHeroSearch');
+    const clearBtn = document.getElementById('clearSearch');
+    
+    [clearHeroBtn, clearBtn].forEach(btn => {
+      if (btn) {
+        btn.addEventListener('click', function() {
+          // Clear all search inputs
+          if (heroSearchInput) heroSearchInput.value = '';
+          if (searchFormInput) searchFormInput.value = '';
+          if (searchInput) searchInput.value = '';
+          
+          // Get current URL without address parameter
+          const url = new URL(window.location);
+          url.searchParams.delete('address');
+          
+          // Redirect to show all listings
+          window.location.href = url.toString();
+        });
       }
     });
   }
 
-  function showSuggestions(matches, searchTerm) {
-    searchSuggestions.innerHTML = '';
+  function setupFormSync() {
+    // When hero search form is submitted, sync with main form first
+    const heroForm = document.getElementById('heroSearchForm');
+    const mainForm = document.getElementById('searchForm');
+    const sortDropdown = document.getElementById('sort-quick');
+    const sortField = document.getElementById('sortField');
+    
+    if (heroForm && mainForm) {
+      heroForm.addEventListener('submit', function(e) {
+        // Sync address value to main form before hero form submits
+        if (searchFormInput) {
+          searchFormInput.value = heroSearchInput.value;
+        }
+      });
+    }
+    
+    // Sync sort dropdown with hidden sort field
+    if (sortDropdown && sortField) {
+      sortDropdown.addEventListener('change', function() {
+        sortField.value = this.value;
+      });
+      
+      // Initialize sort field with dropdown value
+      sortField.value = sortDropdown.value;
+    }
+    
+    // Add form change listeners to sync all inputs
+    if (mainForm) {
+      const formInputs = mainForm.querySelectorAll('input, select');
+      formInputs.forEach(input => {
+        if (input.name !== 'address') { // Address already handled above
+          input.addEventListener('change', function() {
+            // This ensures all form fields stay in sync
+            // Future enhancement: could add real-time filtering here
+          });
+        }
+      });
+    }
+  }
+
+  function showSuggestions(matches, searchTerm, container) {
+    if (!container) return;
+    
+    container.innerHTML = '';
     currentHighlight = -1;
+    currentSuggestionsContainer = container;
 
     matches.forEach(city => {
       const item = document.createElement('div');
@@ -2360,15 +2588,23 @@ document.addEventListener('DOMContentLoaded', function () {
         selectSuggestion(city);
       });
       
-      searchSuggestions.appendChild(item);
+      container.appendChild(item);
     });
 
-    searchSuggestions.classList.add('show');
+    container.classList.add('show');
   }
 
-  function hideSuggestions() {
-    searchSuggestions.classList.remove('show');
+  function hideSuggestions(container) {
+    if (container) {
+      container.classList.remove('show');
+    } else {
+      // Hide all suggestion containers
+      [heroSearchSuggestions, searchSuggestions].forEach(cont => {
+        if (cont) cont.classList.remove('show');
+      });
+    }
     currentHighlight = -1;
+    currentSuggestionsContainer = null;
   }
 
   function updateHighlight(suggestions) {
@@ -2382,10 +2618,19 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function selectSuggestion(city) {
-    searchInput.value = city;
+    // Update all search inputs with selected city
+    if (heroSearchInput) heroSearchInput.value = city;
+    if (searchFormInput) searchFormInput.value = city;
+    if (searchInput) searchInput.value = city;
+    
+    // Hide all suggestions
     hideSuggestions();
+    
     // Optionally trigger search immediately
-    // searchInput.closest('form').submit();
+    // heroSearchInput.closest('form').submit();
   }
+
+  // Initialize search synchronization when DOM is loaded
+  initSearchSync();
 });
 </script>
