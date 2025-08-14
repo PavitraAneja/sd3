@@ -465,6 +465,12 @@ $conn->close();
                             <button type="submit" class="back-btn">Save This Listing</button>
                         </form>
                     <?php endif; ?>
+                    <?php if (isset($_SESSION['user_id'])): ?>
+                        <button id="sendAlertBtn" class="back-btn" style="margin-top: 10px;">Send Email Alert</button>
+                        <div id="alertMessage" style="margin-top: 10px; display:none;" class="text-success">
+                            Email sent!
+                        </div>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
             <a href="https://www.google.com/maps/search/?api=1&query=<?php echo $address; ?>" 
@@ -690,5 +696,40 @@ $tags_to_display = array_slice($tags, 0, 10);
             .openPopup();
     </script>
     <?php endif; ?>
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const alertBtn = document.getElementById("sendAlertBtn");
+        const messageDiv = document.getElementById("alertMessage");
+    
+        if (alertBtn) {
+            alertBtn.addEventListener("click", function () {
+                fetch("send_alert.php", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: "listing_id=<?php echo urlencode($property_id); ?>"
+                })
+                .then(response => response.json())
+                .then(data => {
+                    messageDiv.style.display = "block";
+                    if (data.success) {
+                        messageDiv.classList.remove("text-danger");
+                        messageDiv.classList.add("text-success");
+                        messageDiv.innerText = "Email alert sent!";
+                    } else {
+                        messageDiv.classList.remove("text-success");
+                        messageDiv.classList.add("text-danger");
+                        messageDiv.innerText = data.message || "Failed to send email.";
+                    }
+                })
+                .catch(() => {
+                    messageDiv.style.display = "block";
+                    messageDiv.classList.remove("text-success");
+                    messageDiv.classList.add("text-danger");
+                    messageDiv.innerText = "Something went wrong.";
+                });
+            });
+        }
+    });
+    </script>
 </body>
 </html>
