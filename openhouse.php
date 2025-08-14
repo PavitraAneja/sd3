@@ -484,13 +484,11 @@ if ($result) {
         <div class="container">
             <div class="header-content">
 
-            <a href="index.php" style="text-decoration: none;">
             <div class="logo" style="display: flex; align-items: center; gap: 2px;">
                 <img src="assets/white-logo.png" alt="California Homes Logo" style="height: 48px; width: auto; display: inline-block; vertical-align: middle;" />
                 <div style="width:2px; height:32px; background:white; margin:0 10px; border-radius:2px;"></div>
                 <span style="font-size: 1.5rem; font-weight: bold; color: white; margin-left: 0;">California Homes</span>
-            </div>
-            </a>           
+            </div>                
             <nav>
                     <ul>
                     <li><a href="index.php">Homes for Sale</a></li>
