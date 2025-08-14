@@ -411,6 +411,9 @@ if (isset($_SESSION['user_id'])) {
         .search-form .form-group.buttons {
             display: flex;
             flex-direction:row;
+            flex-grow: 1;
+            flex-basis: 0;
+            width: 100%;
             gap: 1rem;
             align-items: end;
         }
@@ -1347,11 +1350,13 @@ if (isset($_SESSION['user_id'])) {
     <header>
         <div class="container">
             <div class="header-content">
+            <a href="index.php" style="text-decoration: none;">
             <div class="logo" style="display: flex; align-items: center; gap: 2px;">
                 <img src="assets/white-logo.png" alt="California Homes Logo" style="height: 48px; width: auto; display: inline-block; vertical-align: middle;" />
                 <div style="width:2px; height:32px; background:white; margin:0 10px; border-radius:2px;"></div>
                 <span style="font-size: 1.5rem; font-weight: bold; color: white; margin-left: 0;">California Homes</span>
             </div>
+            </a>
                 <nav>
                     <ul>
                         <li><a href="index.php">Homes for Sale</a></li>
@@ -1472,15 +1477,6 @@ if (isset($_SESSION['user_id'])) {
         <div class="container">
             <form method="GET" class="search-form">
                 <div class="form-group">
-                    <label for="city">City</label>
-                    <select id="city" name="city">
-                        <option value="">All Cities</option>
-                        <?php foreach ($cities as $city): ?>
-                            <option value="<?php echo htmlspecialchars(trim($city)); ?>" <?php if (isset($_GET['city']) && trim($_GET['city']) === trim($city)) echo 'selected'; ?>><?php echo htmlspecialchars(trim($city)); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="form-group">
                     <label for="min">Min Price</label>
                     <select id="min" name="min">
                         <?php
@@ -1532,7 +1528,7 @@ if (isset($_SESSION['user_id'])) {
                     </select>                </div>
 
                 <div class="form-group buttons">
-                    <button type="submit" class="search-btn">Search</button>
+                    <button type="submit" class="search-btn">Apply</button>
                     <button type="button" class="search-btn" style="background: #e2e8f0; color: #333;" onclick="clearAllFilters()">Clear</button>
                 </div>
             </form>
