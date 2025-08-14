@@ -31,7 +31,7 @@ $sql = "SELECT L_ListingID, L_Address, L_City, L_State, L_Zip, L_SystemPrice, L_
 
 // Get the latest created_at from the entire table
 $latest_created_at = null;
-$latest_result = $conn->query('SELECT MAX(created_at) as latest_created_at FROM rets_property');
+$latest_result = $conn->query('SELECT MAX(created_at) as latest_created_at FROM rets_property_yu');
 if ($latest_result && ($row = $latest_result->fetch_assoc())) {
     $latest_created_at = $row['latest_created_at'];
 }
@@ -1392,13 +1392,20 @@ if (isset($_SESSION['user_id'])) {
                         <input type="hidden" name="sort" value="<?php echo htmlspecialchars($_GET['sort']); ?>">
                     <?php endif; ?>
                     
-                    <input 
-                        type="text" 
-                        name="address" 
-                        class="hero-search-input" 
-                        placeholder="Enter an address, neighborhood, city or ZIP code..."
-                        value="<?php echo isset($_GET['address']) ? htmlspecialchars($_GET['address']) : ''; ?>"
-                    >
+                    <div style="position: relative; display: flex; width: 100%;">
+                        <input 
+                            type="text" 
+                            name="address" 
+                            id="searchInput"
+                            class="hero-search-input" 
+                            placeholder="Enter a city or ZIP code..."
+                            value="<?php echo isset($_GET['address']) ? htmlspecialchars($_GET['address']) : ''; ?>"
+                            style="padding-right: 40px;"
+                        >
+                        <?php if (isset($_GET['address']) && !empty($_GET['address'])): ?>
+                        <button type="button" id="clearSearch" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #666; font-size: 18px;">&times;</button>
+                        <?php endif; ?>
+                    </div>
                     <button type="submit" class="hero-search-btn">
                         <svg class="hero-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -2218,6 +2225,19 @@ document.addEventListener('DOMContentLoaded', function () {
           msg.textContent = data.message;
         }
       });
+    });
+  }
+
+  // Clear search functionality
+  const clearButton = document.getElementById('clearSearch');
+  if (clearButton) {
+    clearButton.addEventListener('click', function() {
+      // Get current URL without address parameter
+      const url = new URL(window.location);
+      url.searchParams.delete('address');
+      
+      // Redirect to show all listings
+      window.location.href = url.toString();
     });
   }
 });
