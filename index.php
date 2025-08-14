@@ -83,7 +83,7 @@ if ($result) {
 
 // Collect unique cities from the entire property table
 $cities = [];
-$city_result = $conn->query("SELECT DISTINCT L_City FROM rets_property WHERE L_City IS NOT NULL AND L_City != '' ORDER BY L_City ASC");
+$city_result = $conn->query("SELECT DISTINCT L_City FROM rets_property_yu WHERE L_City IS NOT NULL AND L_City != '' ORDER BY L_City ASC");
 if ($city_result) {
     while ($row = $city_result->fetch_assoc()) {
         $cities[] = $row['L_City'];
@@ -262,6 +262,55 @@ if (isset($_SESSION['user_id'])) {
             position: relative;
         }
 
+        /* Search Autocomplete Dropdown */
+        .search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 8px;
+            right: 8px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            z-index: 99999;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            margin-top: 4px;
+        }
+
+        .search-suggestions.show {
+            display: block !important;
+        }
+
+        .search-suggestion-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 1rem;
+            color: #333;
+            transition: background-color 0.2s;
+        }
+
+        .search-suggestion-item:last-child {
+            border-bottom: none;
+            border-radius: 0 0 12px 12px;
+        }
+
+        .search-suggestion-item:first-child {
+            border-radius: 12px 12px 0 0;
+        }
+
+        .search-suggestion-item:hover,
+        .search-suggestion-item.highlighted {
+            background-color: #f8fafc;
+            color: #667eea;
+        }
+
+        .search-suggestion-item.highlighted {
+            background-color: #e0e7ff;
+        }
+
         .hero-search-form {
             display: flex;
             justify-content: space-between;
@@ -345,7 +394,7 @@ if (isset($_SESSION['user_id'])) {
             box-shadow: 0 2px 20px rgba(0,0,0,0.1);
             margin-top: -2rem;
             position: relative;
-            z-index: 10;
+            z-index: 1;
         }
 
         .search-form {
@@ -1401,10 +1450,12 @@ if (isset($_SESSION['user_id'])) {
                             placeholder="Enter a city or ZIP code..."
                             value="<?php echo isset($_GET['address']) ? htmlspecialchars($_GET['address']) : ''; ?>"
                             style="padding-right: 40px;"
+                            autocomplete="off"
                         >
                         <?php if (isset($_GET['address']) && !empty($_GET['address'])): ?>
                         <button type="button" id="clearSearch" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #666; font-size: 18px;">&times;</button>
                         <?php endif; ?>
+                        <div id="searchSuggestions" class="search-suggestions"></div>
                     </div>
                     <button type="submit" class="hero-search-btn">
                         <svg class="hero-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2239,6 +2290,106 @@ document.addEventListener('DOMContentLoaded', function () {
       // Redirect to show all listings
       window.location.href = url.toString();
     });
+  }
+
+  // Search autocomplete functionality
+  const cities = <?php echo json_encode($cities); ?>;
+  const searchInput = document.getElementById('searchInput');
+  const searchSuggestions = document.getElementById('searchSuggestions');
+  let currentHighlight = -1;
+
+  if (searchInput && searchSuggestions) {
+    searchInput.addEventListener('input', function() {
+      const value = this.value.trim().toLowerCase();
+      
+      if (value.length === 0) {
+        hideSuggestions();
+        return;
+      }
+
+      const matches = cities.filter(city => 
+        city.toLowerCase().includes(value)
+      ).slice(0, 8); // Limit to 8 suggestions
+
+      if (matches.length > 0) {
+        showSuggestions(matches, value);
+      } else {
+        hideSuggestions();
+      }
+    });
+
+    searchInput.addEventListener('keydown', function(e) {
+      const suggestions = searchSuggestions.querySelectorAll('.search-suggestion-item');
+      
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        currentHighlight = Math.min(currentHighlight + 1, suggestions.length - 1);
+        updateHighlight(suggestions);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        currentHighlight = Math.max(currentHighlight - 1, -1);
+        updateHighlight(suggestions);
+      } else if (e.key === 'Enter') {
+        if (currentHighlight >= 0 && suggestions[currentHighlight]) {
+          e.preventDefault();
+          selectSuggestion(suggestions[currentHighlight].textContent);
+        }
+      } else if (e.key === 'Escape') {
+        hideSuggestions();
+      }
+    });
+
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!searchInput.contains(e.target) && !searchSuggestions.contains(e.target)) {
+        hideSuggestions();
+      }
+    });
+  }
+
+  function showSuggestions(matches, searchTerm) {
+    searchSuggestions.innerHTML = '';
+    currentHighlight = -1;
+
+    matches.forEach(city => {
+      const item = document.createElement('div');
+      item.className = 'search-suggestion-item';
+      
+      // Highlight matching text
+      const regex = new RegExp(`(${searchTerm})`, 'gi');
+      const highlightedText = city.replace(regex, '<strong>$1</strong>');
+      item.innerHTML = highlightedText;
+      
+      item.addEventListener('click', function() {
+        selectSuggestion(city);
+      });
+      
+      searchSuggestions.appendChild(item);
+    });
+
+    searchSuggestions.classList.add('show');
+  }
+
+  function hideSuggestions() {
+    searchSuggestions.classList.remove('show');
+    currentHighlight = -1;
+  }
+
+  function updateHighlight(suggestions) {
+    suggestions.forEach((item, index) => {
+      if (index === currentHighlight) {
+        item.classList.add('highlighted');
+      } else {
+        item.classList.remove('highlighted');
+      }
+    });
+  }
+
+  function selectSuggestion(city) {
+    searchInput.value = city;
+    hideSuggestions();
+    // Optionally trigger search immediately
+    // searchInput.closest('form').submit();
   }
 });
 </script>
